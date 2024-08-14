@@ -11,6 +11,12 @@ void userInputParameters<dim>::load_BC_list(std::vector<std::string> list_of_BCs
     std::vector<std::string> temp;
 
     for (unsigned int i=0; i<list_of_BCs.size(); i++){
+
+        if (list_of_BCs[i] == ""){
+            std::cout << "Error: Boundary condition not specified." << std::endl;
+            abort();
+        }
+
         varBCs<dim> newBC;
         temp = dealii::Utilities::split_string_list(list_of_BCs[i]);
 
