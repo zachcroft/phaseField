@@ -6,10 +6,10 @@ import sys
 import subprocess
 
 #Output file name
-ofname="microstructure_US.vtk"
+ofname="4x4_US.vtk"
 
 #Intermediate file name
-intname="microstructure_RL_resampled.vtk"
+intname="4x4_resampled.vtk"
 
 print('Converting to unstructured mesh')
 

@@ -41,7 +41,8 @@ template <int dim, int degree>
 	 // Setup system
 	 pcout << "initializing matrix free object\n";
 	 totalDOFs=0;
-	 for(typename std::vector<Field<dim> >::iterator it = fields.begin(); it != fields.end(); ++it){
+	 for(typename std::vector<Field<dim> >::iterator it = fields.begin(); it != fields.end(); ++it)
+	 {
 		 currentFieldIndex=it->index;
 
 		 char buffer[100];
@@ -117,12 +118,35 @@ template <int dim, int degree>
 		 dof_handler->distribute_dofs (*fe);
 		 totalDOFs+=dof_handler->n_dofs();
 
-		 // Extract locally_relevant_dofs
-		 IndexSet* locally_relevant_dofs;
 
+		
+		//const unsigned int this_mpi_process = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD); 
+
+		 // Extract locally_relevant_dofs
+		 IndexSet* locally_relevant_dofs;		 
 		 locally_relevant_dofs=new IndexSet;
 		 locally_relevant_dofsSet.push_back(locally_relevant_dofs);
 		 locally_relevant_dofsSet_nonconst.push_back(locally_relevant_dofs);
+
+		/*
+		// Print locally owned dofs
+		typename DoFHandler<dim>::active_cell_iterator cell = dof_handler->begin_active(), endc = dof_handler->end();
+		const IndexSet locally_owned_dofs = dof_handler->locally_owned_dofs();
+		for (;cell != endc; cell++){
+			if (cell->is_locally_owned())
+			{
+				for (unsigned int v=0; v<GeometryInfo<dim>::vertices_per_cell; v++){
+					const unsigned int global_index = cell->vertex_dof_index(v,0);
+
+					if (locally_owned_dofs.is_element(global_index))
+					{
+						const Point<dim> &vertex = cell->vertex(v);
+						std::cout << "Processor " << this_mpi_process << " owns node at " << vertex << " with global index " << global_index << std::endl;
+					}
+				}
+			}
+		}
+		*/
 
 		 locally_relevant_dofs->clear();
 		 DoFTools::extract_locally_relevant_dofs (*dof_handler, *locally_relevant_dofs);
@@ -150,16 +174,16 @@ template <int dim, int degree>
 		 // Get constraints for periodic BCs
 		 setPeriodicityConstraints(constraintsOther,dof_handler);
 
-     // Check if Dirichlet BCs are used
-     has_Dirichlet_BCs = false;
-     for (unsigned int i=0; i<userInputs.BC_list.size(); i++){
-         for (unsigned int direction = 0; direction < 2*dim; direction++){
-             if (userInputs.BC_list[i].var_BC_type[direction] == DIRICHLET || userInputs.BC_list[i].var_BC_type[direction] == NON_UNIFORM_DIRICHLET){
-                 has_Dirichlet_BCs = true;
-                 break;
-             }
-         }
-     }
+		// Check if Dirichlet BCs are used
+		has_Dirichlet_BCs = false;
+		for (unsigned int i=0; i<userInputs.BC_list.size(); i++){
+			for (unsigned int direction = 0; direction < 2*dim; direction++){
+				if (userInputs.BC_list[i].var_BC_type[direction] == DIRICHLET || userInputs.BC_list[i].var_BC_type[direction] == NON_UNIFORM_DIRICHLET){
+					has_Dirichlet_BCs = true;
+					break;
+				}
+			}
+		}
 
 		 // Get constraints for Dirichlet BCs
 		 applyDirichletBCs();
@@ -243,7 +267,9 @@ template <int dim, int degree>
          load_checkpoint_fields();
      }
      else {
-         applyInitialConditions();
+		//DoFHandler<dim>* dof_handler;
+		 //dof_handler=new DoFHandler<dim>(triangulation);
+         applyInitialConditions(dof_handler);
     }
 
 
@@ -284,6 +310,10 @@ template <int dim, int degree>
      else {
     	 GridGenerator::subdivided_hyper_rectangle (tria, userInputs.subdivisions, Point<dim>(), Point<dim>(userInputs.domain_size[0]));
      }
+
+
+
+
 
      // Mark boundaries for applying the boundary conditions
 	 markBoundaries(tria);

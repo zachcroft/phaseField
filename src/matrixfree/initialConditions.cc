@@ -35,9 +35,31 @@ public:
 
 //methods to apply initial conditions
 template <int dim, int degree>
-void MatrixFreePDE<dim,degree>::applyInitialConditions(){
+void MatrixFreePDE<dim,degree>::applyInitialConditions(const DoFHandler<dim>* dof_handler){
 
     if (userInputs.load_grain_structure){
+
+        const unsigned int this_mpi_process = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD); 
+        // Print locally owned dofs
+		typename DoFHandler<dim>::active_cell_iterator cell = dof_handler->begin_active(), endc = dof_handler->end();
+		const IndexSet locally_owned_dofs = dof_handler->locally_owned_dofs();
+		for (;cell != endc; cell++){
+			if (cell->is_locally_owned())
+			{
+				for (unsigned int v=0; v<GeometryInfo<dim>::vertices_per_cell; v++){
+					const unsigned int global_index = cell->vertex_dof_index(v,0);
+
+					if (locally_owned_dofs.is_element(global_index))
+					{
+						const Point<dim> &vertex = cell->vertex(v);
+						std::cout << "Processor " << this_mpi_process << " owns node at " << vertex << " with global index " << global_index << std::endl;
+					}
+				}
+			}
+		}
+
+
+
         // Create the dummy field
         vectorType grain_index_field;
 

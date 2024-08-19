@@ -6,10 +6,10 @@ import sys
 from visit import *
 
 #Input file name
-ifname="microstructure_RL.vtk"
+ifname="4x4_2D.vtk"
 
 #Output file name
-ofname="microstructure_RL_resampled"
+ofname="4x4_resampled"
 
 print("Opening input vtk file from DREAM.3D")
 
@@ -28,14 +28,16 @@ num_x_coords = int(gpq[2])
 num_y_coords = int(gpq[3])
 num_z_coords = int(gpq[4])
 
-print ("number of grid points z, y, z: " + str(num_x_coords) + ", " + str(num_y_coords) + ", " + str(num_z_coords))
+print ("number of grid points x, y, z: " + str(num_x_coords) + ", " + str(num_y_coords) + ", " + str(num_z_coords))
 
 #Getting the min and max coordinates of the system
 Query("SpatialExtents", use_actual_data=1)
 seq = GetQueryOutputValue()
 min_x_val = seq[0]
 min_y_val = seq[2]
-min_z_val = seq[4]
+min_z_val = 0
+
+print(min_z_val)
 
 print("Translation of system coordinades to origin")
 

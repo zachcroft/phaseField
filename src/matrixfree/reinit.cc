@@ -145,7 +145,8 @@ template <int dim, int degree>
 
  	 // If remeshing at the zeroth time step, re-apply initial conditions so the starting values are correct on the refined mesh
  	 if (currentIncrement == 0 && !userInputs.load_grain_structure){
- 		 applyInitialConditions();
+		DoFHandler<dim>* dof_handler;
+ 		 applyInitialConditions(dof_handler);
  	 }
 
  	 // Ghost the solution vectors. Also apply the Dirichet BC's (if any) on the solution vectors
