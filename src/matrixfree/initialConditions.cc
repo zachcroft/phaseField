@@ -77,11 +77,27 @@ void MatrixFreePDE<dim,degree>::applyInitialConditions(){
         filename += ".vtk";
 
         body.read_vtk(filename);
+
+        
         ScalarField &id_field = body.find_scalar_field(userInputs.grain_structure_variable_name);
 
-        pcout << "Applying PField initial condition...\n";
 
-        VectorTools::interpolate (*dofHandlersSet[scalar_field_index], InitialConditionPField<dim>(0,id_field), grain_index_field);
+
+
+        pcout << "Applying PField initial condition...\n";
+        //if (dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 1){
+        std::cout << "grain_index_field: " << grain_index_field.size() << std::endl;
+        //for (unsigned int i = 0; i < grain_index_field.size(); i++){
+        //    std::cout << grain_index_field[i] << std::endl;
+        //}
+        std::cout << "DoF handlers: " << dofHandlersSet.size() << std::endl;
+        std::cout << "grain_index_field: " << grain_index_field.size() << std::endl;
+        std::cout << "id_field: " << id_field.size() << std::endl;
+
+        VectorTools::interpolate(*dofHandlersSet[scalar_field_index], InitialConditionPField<dim>(0,id_field), grain_index_field);
+
+        //}
+        std::cout << "Interpolation complete" << std::endl;
 
         grain_index_field.update_ghost_values();
 

@@ -47,7 +47,12 @@ namespace PRISMS
             std::ifstream infile_mesh(vtkfile.c_str());
 
             // read mesh info
+            std::cout << "hello1" << std::endl;
+            //if (dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0){
+                //std::cout << "hello2" << std::endl;
             mesh.read_vtk(infile_mesh);
+            //}
+            
 
             std::ifstream infile(vtkfile.c_str());
 
