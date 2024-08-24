@@ -10,6 +10,7 @@
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/matrix_free/fe_evaluation.h>
+#include <deal.II/base/conditional_ostream.h>
 
 #ifndef vectorType
 typedef dealii::LinearAlgebra::distributed::Vector<double> vectorType;
@@ -81,7 +82,8 @@ public:
     /**
     * Constructor.
     */
-    FloodFiller(dealii::FESystem<dim> & _fe, dealii::QGaussLobatto<dim> _quadrature): quadrature(_quadrature), num_quad_points(_quadrature.size()), dofs_per_cell(_fe.dofs_per_cell){
+    FloodFiller(dealii::FESystem<dim> & _fe, dealii::QGaussLobatto<dim> _quadrature, dealii::ConditionalOStream _pcout, int _level)
+                : quadrature(_quadrature), num_quad_points(_quadrature.size()), dofs_per_cell(_fe.dofs_per_cell), fe_values(_fe, _quadrature, dealii::update_values), pcout(_pcout), level(_level){
         fe = & _fe;
     };
 
@@ -90,6 +92,28 @@ public:
     */
     void calcGrainSets(dealii::FESystem<dim> & fe, dealii::DoFHandler<dim> &dof_handler, vectorType* solution_field, double threshold_lower, double threshold_upper, unsigned int order_parameter_index, std::vector<GrainSet<dim>> & grain_sets);
 protected:
+
+    /**
+    * The actual queue flood fill method
+    * https://www.algorithm-archive.org/contents/flood_fill/flood_fill.html
+    */
+    template <typename T>
+    void queueFloodFill(T di, T di_end, vectorType* solution_field, double threshold_lower, double threshold_upper, std::vector<GrainSet<dim>> & grain_sets, bool & grain_assigned);
+
+    /**
+     * Function that checks whether a di 'cell' should be considered to be
+     * added to the flood fill queue. Returns true if:
+     *      - The cell's 'ele_val' is in the thresholds AND
+     *      - di isn't already marked AND
+     *      - it isn't past the last cell iterator AND
+     *      - the di is owned by this processor
+     */
+    template <typename T>
+    bool checkCell(T di, T di_end, vectorType* solution_field, double threshold_lower, double threshold_upper);
+
+    dealii::ConditionalOStream pcout;
+
+    int level;
 
     /**
     * The actual recursive flood fill method.
@@ -126,6 +150,15 @@ protected:
     * The deal.II finite element object, set in the constructor.
     */
     dealii::FESystem<dim> * fe;
+
+    /**
+     * The deal.II finite element values object.
+     * Used for calculating the values at 'di' cell_iterator objects.
+     * Rather than being initialized every time recursiveFloodFill is called,
+     * this is a member variable that doesn't change between every call of 
+     * recursiveFloodFill (thus reducing unnecessary computations).
+     */
+    dealii::FEValues<dim> fe_values;
 };
 
 #endif

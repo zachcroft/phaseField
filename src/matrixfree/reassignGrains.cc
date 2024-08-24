@@ -23,9 +23,15 @@ void MatrixFreePDE<dim,degree>::reassignGrains () {
         }
     }
 
+    int level = userInputs.max_refinement_level;
+    if (!userInputs.h_adaptivity)
+    {
+        level = userInputs.refine_factor;
+    }
+
     // Create the simplified grain representations
     QGaussLobatto<dim> quadrature2 (degree+1);
-    FloodFiller<dim, degree> flood_filler(*FESet.at(scalar_field_index), quadrature2);
+    FloodFiller<dim, degree> flood_filler(*FESet.at(scalar_field_index), quadrature2, pcout, level);
 
     std::vector<GrainSet<dim>> grain_sets;
 

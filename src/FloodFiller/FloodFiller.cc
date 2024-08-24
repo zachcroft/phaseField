@@ -1,16 +1,24 @@
 #include "../../include/FloodFiller.h"
 #include <numeric>
+#include <iostream>
+#include <map>
+#include <queue>
+#include <vector>
 
+// Function to calculate sets of grains described by 
+// a single order parameter
 template <int dim, int degree>
 void FloodFiller<dim, degree>::calcGrainSets(dealii::FESystem<dim> & fe, dealii::DoFHandler<dim> &dof_handler, vectorType* solution_field, double threshold_lower, double threshold_upper, unsigned int order_parameter_index, std::vector<GrainSet<dim>> & grain_sets){
 
-    unsigned int grain_index = 0;
-
-    // Loop through the whole mesh and set the user flags to false (so everything is considered unmarked)
+    // Loop through the whole mesh and set the user flags to false 
+    // (so everything is considered unmarked)
     typename dealii::DoFHandler<dim>::cell_iterator di = dof_handler.begin();
     while (di != dof_handler.end())
     {
-        di->clear_user_flag();
+        if(!di->has_children()){
+            // Clear each cell of the 'marked' marking
+            di->clear_user_flag();
+        }
         ++di;
     }
 
@@ -20,16 +28,18 @@ void FloodFiller<dim, degree>::calcGrainSets(dealii::FESystem<dim> & fe, dealii:
 
     // The flood fill loop
     di = dof_handler.begin();
-    while (di != dof_handler.end())
+    unsigned int numberOfCellsIterated = 0;
+    while (di != dof_handler.end(level))
     {
         if (!di->has_children()){
             bool grain_assigned = false;
-            recursiveFloodFill<typename dealii::DoFHandler<dim>::cell_iterator>(di, dof_handler.end(), solution_field, threshold_lower, threshold_upper,  grain_index, grain_sets, grain_assigned);
 
+            // Fill in the current grain
+            queueFloodFill<typename dealii::DoFHandler<dim>::cell_iterator>(di, dof_handler.end(level), solution_field, threshold_lower, threshold_upper, grain_sets, grain_assigned);
 
+            // Check if the grain has been assigned to a grain set.
+            // If it hasn't, add it to a new grain set.
             if (grain_assigned){
-                // Get the grain set initialized for the next grain to be found
-                grain_index++;
                 GrainSet<dim> new_grain_set;
                 new_grain_set.setOrderParameterIndex(order_parameter_index);
                 grain_sets.push_back(new_grain_set);
@@ -37,11 +47,7 @@ void FloodFiller<dim, degree>::calcGrainSets(dealii::FESystem<dim> & fe, dealii:
         }
 
         ++di;
-    }
-
-    // If the last grain was initialized but empty, delete it
-    if (grain_sets.back().getVertexList().size() == 0){
-        grain_sets.pop_back();
+        ++numberOfCellsIterated;
     }
 
     // Generate global list of the grains, merging grains split between multiple processors
@@ -54,6 +60,116 @@ void FloodFiller<dim, degree>::calcGrainSets(dealii::FESystem<dim> & fe, dealii:
         mergeSplitGrains(grain_sets);
 	}
 }
+
+
+// Function for performing the flood fill operation.
+template <int dim, int degree>
+template <typename T>
+void FloodFiller<dim, degree>::queueFloodFill(T di, T di_end, vectorType* solution_field, double threshold_lower, double threshold_upper, std::vector<GrainSet<dim>> & grain_sets, bool & grain_assigned){
+
+    // 
+    if (!checkCell(di,di_end,solution_field,threshold_lower,threshold_upper))
+    {
+        return;
+    }
+
+    // Print the starting location of the grain
+    pcout << "Grain found at: " << di->vertex(0) << "\n";
+
+    // Make a queue for the flood fill
+    std::queue<T> floodQueue;
+    floodQueue.emplace(di);
+
+    // Mark the cell as visited
+    di->set_user_flag();
+    std::vector<dealii::Point<dim> > vertex_list;
+    for (unsigned int v=0; v<dealii::Utilities::fixed_power<dim>(2.0); v++)
+    {
+        vertex_list.push_back(di->vertex(v));
+    }
+    grain_sets.back().addVertexList(vertex_list);
+    vertex_list.clear();
+
+    // Counting variable for # of cells visited
+    unsigned int numberOfCellsInFill = 1;
+
+    // Queue Loop:
+    while (floodQueue.size() > 0)
+    {
+        // De-queue the current cell
+        T currentCell = floodQueue.front();
+        floodQueue.pop();
+
+        // Immediately find currentCell's possible neighbors (4 max if 2D, 6 max if 3D)
+        std::vector<T> possible_neighbors;
+        for (unsigned int n=0; n<2*dim; n++)
+        {
+            // Only include cells that should be marked
+            if (checkCell(currentCell->neighbor(n), di_end, solution_field, threshold_lower, threshold_upper))
+            {
+                possible_neighbors.push_back(currentCell->neighbor(n));
+            }
+        }
+
+        // Mark the enqueued cells
+        for (unsigned int i = 0; i < possible_neighbors.size(); i++)
+        {
+            possible_neighbors[i]->set_user_flag();
+            std::vector<dealii::Point<dim> > vertex_list;
+            for (unsigned int v=0; v<dealii::Utilities::fixed_power<dim>(2.0); v++)
+            {
+                vertex_list.push_back(possible_neighbors[i]->vertex(v));
+            }
+            grain_sets.back().addVertexList(vertex_list);
+
+            // Enqueue
+            floodQueue.emplace(possible_neighbors[i]);
+
+            ++numberOfCellsInFill;
+        }
+    }
+
+    pcout << "Grain filled: found " << numberOfCellsInFill << " cells in grain.\n";
+
+    grain_assigned = true;
+}
+
+template <int dim, int degree>
+template <typename T>
+bool FloodFiller<dim, degree>::checkCell(T di, T di_end, vectorType* solution_field, double threshold_lower, double threshold_upper)
+{
+    if (di != di_end && !di->user_flag_set() && !di->has_children() && di->is_locally_owned())
+    {
+        std::vector<double> var_values(num_quad_points);
+        fe_values.reinit(di);
+        fe_values.get_function_values(*solution_field, var_values);
+
+        double ele_val;
+        std::map<double, int> quadratureValues;
+        int maxNumberSeen = 0;
+        double mostCommonQPointValue = -1;
+
+        for (unsigned int q_point = 0; q_point < num_quad_points; ++q_point)
+        {
+            ++quadratureValues[var_values[q_point]];
+            if (quadratureValues[var_values[q_point]] > maxNumberSeen)
+            {
+                maxNumberSeen = quadratureValues[var_values[q_point]];
+                mostCommonQPointValue = var_values[q_point];
+            }
+        }
+
+        ele_val = mostCommonQPointValue;
+
+        if (threshold_lower < ele_val && ele_val < threshold_upper)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+
 
 template <int dim, int degree>
 template <typename T>
