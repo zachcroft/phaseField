@@ -43,6 +43,34 @@ template <int dim, int degree>
 void
 MatrixFreePDE<dim, degree>::applyInitialConditions()
 {
+
+    // Begin section for binary read in
+    std::vector<double> data;
+    std::ifstream dataFile("test.dat", std::ios::in | std::ios::binary);
+    double dbuf;
+    char buf[8];
+    unsigned long bindata_totsize = 65*65;
+    data.reserve(bindata_totsize);
+
+    // Read the .dat file
+    for (unsigned long i=0; i<bindata_totsize; i++)
+    {
+        dataFile.read(buf,8);
+        memcpy(&dbuf, &buf, sizeof data[0]);
+        data.push_back(dbuf);
+    }
+    dataFile.close();
+    // End section for binary read in
+
+    // Print contents to test if read in was successful
+    for (unsigned int i = 0; i < data.size(); i++)
+    {
+        std::cout << data[i] << std::endl;
+    }
+    
+
+
+
   if (userInputs.load_grain_structure)
     {
       // Create the dummy field
@@ -95,9 +123,16 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
 
       pcout << "Applying PField initial condition...\n";
 
+      //VectorTools::interpolate(*dofHandlersSet[scalar_field_index],
+      //                         InitialConditionPField<dim>(0, id_field),
+      //                         grain_index_field);
       VectorTools::interpolate(*dofHandlersSet[scalar_field_index],
-                               InitialConditionPField<dim>(0, id_field),
-                               grain_index_field);
+                                           InitialCondition<dim, degree>(scalar_field_index,
+                                                                         userInputs,
+                                                                         this,
+                                                                         data),
+                                           grain_index_field);
+      
 
       grain_index_field.update_ghost_values();
 
@@ -321,7 +356,8 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
                   VectorTools::interpolate(*dofHandlersSet[var_index],
                                            InitialCondition<dim, degree>(var_index,
                                                                          userInputs,
-                                                                         this),
+                                                                         this,
+                                                                         data),
                                            *solutionSet[var_index]);
                 }
               else if (userInputs.var_type[var_index] == VECTOR)

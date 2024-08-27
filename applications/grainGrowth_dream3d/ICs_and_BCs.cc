@@ -7,7 +7,8 @@ void
 customPDE<dim, degree>::setInitialCondition(const dealii::Point<dim> &p,
                                             const unsigned int        index,
                                             double                   &scalar_IC,
-                                            dealii::Vector<double>   &vector_IC)
+                                            dealii::Vector<double>   &vector_IC,
+                                            const std::vector<double> &data)
 {
   // ---------------------------------------------------------------------
   // ENTER THE INITIAL CONDITIONS HERE
@@ -15,6 +16,17 @@ customPDE<dim, degree>::setInitialCondition(const dealii::Point<dim> &p,
   // Enter the function describing conditions for the fields at point "p".
   // Use "if" statements to set the initial condition for each variable
   // according to its variable index
+
+  if (index == 0)
+  {
+    //scalar_IC = data[2000];
+    int index = int(p[0] + 65 * p[1]);
+    double data_value = data[index];
+    std::cout << "Data value at index " << index << " is " << data_value << std::endl;
+    scalar_IC = data_value;
+  }
+
+
 
   // --------------------------------------------------------------------------
 }

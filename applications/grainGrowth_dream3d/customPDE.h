@@ -14,7 +14,8 @@ public:
   setInitialCondition(const dealii::Point<dim> &p,
                       const unsigned int        index,
                       double                   &scalar_IC,
-                      dealii::Vector<double>   &vector_IC);
+                      dealii::Vector<double>   &vector_IC,
+                      const std::vector<double> &data);
 
   // Function to set the non-uniform Dirichlet boundary conditions (in
   // ICs_and_BCs.h)

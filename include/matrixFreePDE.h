@@ -131,7 +131,8 @@ public:
   setInitialCondition(const dealii::Point<dim> &p,
                       const unsigned int        index,
                       double                   &scalar_IC,
-                      dealii::Vector<double>   &vector_IC) = 0;
+                      dealii::Vector<double>   &vector_IC,
+                      const std::vector<double> &data = std::vector<double>() ) = 0;
 
   // Non-uniform boundary conditions function
   virtual void
