@@ -129,7 +129,7 @@ unitTest<dim, T>::test_OrderParameterRemapper()
 
   QGaussLobatto<dim> quadrature2(degree + 1);
 
-  FloodFiller<dim, degree>   test_object(fe, quadrature2);
+  FloodFiller<dim, degree>   test_object(fe, quadrature2, pcout, 2);
   std::vector<GrainSet<dim>> grain_sets_0;
   test_object.calcGrainSets(fe, dof_handler, solution_field_0, 0.1, 1.1, 0, grain_sets_0);
 
