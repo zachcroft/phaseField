@@ -8,12 +8,18 @@
 // Function to calculate sets of grains described by 
 // a single order parameter
 template <int dim, int degree>
-void FloodFiller<dim, degree>::calcGrainSets(dealii::FESystem<dim> & fe, dealii::DoFHandler<dim> &dof_handler, vectorType* solution_field, double threshold_lower, double threshold_upper, unsigned int order_parameter_index, std::vector<GrainSet<dim>> & grain_sets){
+void FloodFiller<dim, degree>::calcGrainSets(dealii::FESystem<dim> & fe, 
+                                            dealii::DoFHandler<dim> &dof_handler, 
+                                            vectorType* solution_field, 
+                                            double threshold_lower, 
+                                            double threshold_upper, 
+                                            unsigned int order_parameter_index, 
+                                            std::vector<GrainSet<dim>> & grain_sets){
 
     // Loop through the whole mesh and set the user flags to false 
     // (so everything is considered unmarked)
-    typename dealii::DoFHandler<dim>::cell_iterator di = dof_handler.begin();
-    while (di != dof_handler.end())
+    typename dealii::DoFHandler<dim>::cell_iterator di = dof_handler.begin(level);
+    while (di != dof_handler.end(level))
     {
         if(!di->has_children()){
             // Clear each cell of the 'marked' marking
@@ -27,7 +33,7 @@ void FloodFiller<dim, degree>::calcGrainSets(dealii::FESystem<dim> & fe, dealii:
     grain_sets.back().setOrderParameterIndex(order_parameter_index);
 
     // The flood fill loop
-    di = dof_handler.begin();
+    di = dof_handler.begin(level);
     unsigned int numberOfCellsIterated = 0;
     while (di != dof_handler.end(level))
     {

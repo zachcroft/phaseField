@@ -5,6 +5,12 @@
 #include "../../include/IntegrationTools/PField.hh"
 #include "../../include/OrderParameterRemapper.h"
 
+#include <unordered_set>
+#include <string>
+#include <vector>
+#include <iostream>
+#include <typeinfo>
+#include <unordered_map>
 
 template <int dim>
 class InitialConditionPField : public Function<dim>
@@ -100,10 +106,22 @@ void MatrixFreePDE<dim,degree>::applyInitialConditions(){
 
             std::vector<GrainSet<dim>> grain_sets_single_id;
 
-            flood_filler.calcGrainSets(*FESet.at(scalar_field_index), *dofHandlersSet_nonconst.at(scalar_field_index), &grain_index_field, (double)id - userInputs.order_parameter_threshold, (double)id + userInputs.order_parameter_threshold, 0, grain_sets_single_id);
+            flood_filler.calcGrainSets(*FESet.at(scalar_field_index), *dofHandlersSet_nonconst.at(scalar_field_index), 
+                                        &grain_index_field, (double)id - userInputs.order_parameter_threshold, (double)id + 
+                                        userInputs.order_parameter_threshold, 0, grain_sets_single_id);
 
             for (unsigned int g=0; g<grain_sets_single_id.size(); g++){
                 grain_sets_single_id.at(g).setGrainIndex(id);
+            }
+
+            if (grain_sets_single_id.back().getVertexList().size() == 0){
+
+                grain_sets_single_id.pop_back();
+            }
+
+            if (grain_sets_single_id.size() == 0){
+
+                pcout << "Not present: " << id << "\n";
             }
 
             grain_sets.insert(grain_sets.end(), grain_sets_single_id.begin(), grain_sets_single_id.end());
@@ -114,10 +132,17 @@ void MatrixFreePDE<dim,degree>::applyInitialConditions(){
             SimplifiedGrainRepresentation<dim> simplified_grain_representation(grain_sets.at(g));
 
             if (dim == 2){
-                pcout << "Grain: " << simplified_grain_representation.getGrainId() << " " << simplified_grain_representation.getOrderParameterId() << " Center: " << simplified_grain_representation.getCenter()(0) << " " << simplified_grain_representation.getCenter()(1) << "  Radius: " << simplified_grain_representation.getRadius() << std::endl;
+                pcout << "Grain: " << simplified_grain_representation.getGrainId() << " " 
+                << simplified_grain_representation.getOrderParameterId() << " Center: " << 
+                simplified_grain_representation.getCenter()(0) << " " << simplified_grain_representation.getCenter()(1) 
+                << "  Radius: " << simplified_grain_representation.getRadius() << std::endl;
             }
             else {
-                pcout << "Grain: " << simplified_grain_representation.getGrainId() << " " << simplified_grain_representation.getOrderParameterId() << " Center: " << simplified_grain_representation.getCenter()(0) << " " << simplified_grain_representation.getCenter()(1) << " " << simplified_grain_representation.getCenter()(2) << "  Radius: " << simplified_grain_representation.getRadius() << std::endl;
+                pcout << "Grain: " << simplified_grain_representation.getGrainId() << " " 
+                << simplified_grain_representation.getOrderParameterId() << " Center: " << 
+                simplified_grain_representation.getCenter()(0) << " " << simplified_grain_representation.getCenter()(1) 
+                << " " << simplified_grain_representation.getCenter()(2) << "  Radius: " << 
+                simplified_grain_representation.getRadius() << std::endl;
             }
 
             simplified_grain_representations.push_back(simplified_grain_representation);
