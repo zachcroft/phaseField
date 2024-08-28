@@ -43,13 +43,14 @@ template <int dim, int degree>
 void
 MatrixFreePDE<dim, degree>::applyInitialConditions()
 {
+    // Test for rank 0 binary read
 
     // Begin section for binary read in
     std::vector<double> data;
-    std::ifstream dataFile("test.dat", std::ios::in | std::ios::binary);
+    std::ifstream dataFile("test_3D_33.dat", std::ios::in | std::ios::binary);
     double dbuf;
     char buf[8];
-    unsigned long bindata_totsize = 65*65;
+    unsigned long bindata_totsize = 33*33*33;
     data.reserve(bindata_totsize);
 
     // Read the .dat file
@@ -117,9 +118,9 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
       std::string filename = userInputs.grain_structure_filename;
       filename += ".vtk";
 
-      body.read_vtk(filename);
-      ScalarField &id_field =
-        body.find_scalar_field(userInputs.grain_structure_variable_name);
+      //body.read_vtk(filename);
+      //ScalarField &id_field =
+      //  body.find_scalar_field(userInputs.grain_structure_variable_name);
 
       pcout << "Applying PField initial condition...\n";
 

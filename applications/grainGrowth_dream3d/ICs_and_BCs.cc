@@ -19,9 +19,17 @@ customPDE<dim, degree>::setInitialCondition(const dealii::Point<dim> &p,
 
   if (index == 0)
   {
-    //scalar_IC = data[2000];
-    int index = int(p[0] + 65 * p[1]);
+    int Nx = userInputs.domain_size[0];
+    int Ny = userInputs.domain_size[1];
+    int Nz = userInputs.domain_size[2];
+
+    // Convert cartesion point into flattened array index
+    int index = int(p[0] + (Ny+1) * p[1] + (Ny+1)*(Nz+1) * p[2]);
+
+    // Extract the grain ID from the data array
     double data_value = data[index];
+
+    //double data_value = 0.0;
     std::cout << "Data value at index " << index << " is " << data_value << std::endl;
     scalar_IC = data_value;
   }
