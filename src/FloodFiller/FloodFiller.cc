@@ -83,8 +83,6 @@ FloodFiller<dim, degree>::calcGrainSets(dealii::FESystem<dim>      &fe,
 
 
 
-
-
 template <int dim, int degree>
 template <typename T>
 void
