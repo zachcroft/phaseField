@@ -8,9 +8,9 @@ set Number of dimensions = 3
 # (Domain size Z ignored in 2D)
 # =================================================================================
 # Each axes spans from zero to the specified length
-set Domain size X = 32
-set Domain size Y = 32
-set Domain size Z = 32
+set Domain size X = 360
+set Domain size Y = 360
+set Domain size Z = 360
 
 # =================================================================================
 # Set the element parameters
@@ -18,11 +18,11 @@ set Domain size Z = 32
 # The number of elements in each direction is 2^(refineFactor) * subdivisions
 # Subdivisions Z ignored in 2D
 # For optimal performance, use refineFactor primarily to determine the element size
-set Subdivisions X = 1
-set Subdivisions Y = 1
-set Subdivisions Z = 1
+set Subdivisions X = 45
+set Subdivisions Y = 45
+set Subdivisions Z = 45
 
-set Refine factor = 4
+set Refine factor = 2
 
 # Set the polynomial degree of the element (allowed values: 1, 2, or 3)
 set Element degree = 2

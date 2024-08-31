@@ -46,11 +46,12 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
     // Test for rank 0 binary read
 
     // Begin section for binary read in
+    std::cout << "Reading .dat file..." << std::endl;
     std::vector<double> data;
-    std::ifstream dataFile("test_3D_33.dat", std::ios::in | std::ios::binary);
+    std::ifstream dataFile("360cubed_singleS3_grain.dat", std::ios::in | std::ios::binary);
     double dbuf;
     char buf[8];
-    unsigned long bindata_totsize = 33*33*33;
+    unsigned long bindata_totsize = 361*361*361;
     data.reserve(bindata_totsize);
 
     // Read the .dat file
@@ -61,13 +62,15 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
         data.push_back(dbuf);
     }
     dataFile.close();
+
+    std::cout << "Done." << std::endl;
     // End section for binary read in
 
     // Print contents to test if read in was successful
-    for (unsigned int i = 0; i < data.size(); i++)
-    {
-        std::cout << data[i] << std::endl;
-    }
+    //for (unsigned int i = 0; i < data.size(); i++)
+    //{
+    //    std::cout << data[i] << std::endl;
+    //}
     
 
 

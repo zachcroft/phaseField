@@ -30,7 +30,7 @@ customPDE<dim, degree>::setInitialCondition(const dealii::Point<dim> &p,
     double data_value = data[index];
 
     //double data_value = 0.0;
-    std::cout << "Data value at index " << index << " is " << data_value << std::endl;
+    //std::cout << "Data value at index " << index << " is " << data_value << std::endl;
     scalar_IC = data_value;
   }
 
