@@ -144,7 +144,7 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
       // Now locate all of the grains and create simplified representations of
       // them
       QGaussLobatto<dim>       quadrature2(degree + 1);
-      FloodFiller<dim, degree> flood_filler(*FESet.at(scalar_field_index), quadrature2);
+      FloodFiller<dim, degree> flood_filler(*FESet.at(scalar_field_index), quadrature2, pcout, userInputs.refine_factor);
 
       pcout << "Locating the grains...\n";
       std::vector<GrainSet<dim>> grain_sets;

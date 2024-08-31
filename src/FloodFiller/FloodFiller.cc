@@ -1,6 +1,10 @@
 #include "../../include/FloodFiller.h"
 
 #include <numeric>
+#include <iostream>
+#include <vector>
+#include <queue> 
+#include <map>
 
 template <int dim, int degree>
 void
@@ -35,7 +39,7 @@ FloodFiller<dim, degree>::calcGrainSets(dealii::FESystem<dim>      &fe,
       if (!di->has_children())
         {
           bool grain_assigned = false;
-          recursiveFloodFill<typename dealii::DoFHandler<dim>::cell_iterator>(
+          queueFloodFill<typename dealii::DoFHandler<dim>::cell_iterator>(
             di,
             dof_handler.end(level),
             solution_field,
@@ -78,7 +82,83 @@ FloodFiller<dim, degree>::calcGrainSets(dealii::FESystem<dim>      &fe,
 
 
 
+// Function for performing the flood fill operation
+template <int dim, int degree>
+template <typename T>
+void FloodFiller<dim, degree>::queueFloodFill(T di, 
+                                              T di_end, 
+                                              vectorType* solution_field, 
+                                              double threshold_lower, 
+                                              double threshold_upper, 
+                                              std::vector<GrainSet<dim>> & grain_sets, 
+                                              bool & grain_assigned){
 
+    // 
+    if (!checkCell(di,di_end,solution_field,threshold_lower,threshold_upper))
+    {
+        return;
+    }
+
+    // Print the starting location of the grain
+    //pcout << "Grain found at: " << di->vertex(0) << "\n";
+
+    // Make a queue for the flood fill
+    std::queue<T> floodQueue;
+    floodQueue.emplace(di);
+
+    // Mark the cell as visited
+    di->set_user_flag();
+    std::vector<dealii::Point<dim> > vertex_list;
+    for (unsigned int v=0; v<dealii::Utilities::fixed_power<dim>(2.0); v++)
+    {
+        vertex_list.push_back(di->vertex(v));
+    }
+    grain_sets.back().addVertexList(vertex_list);
+    vertex_list.clear();
+
+    // Counting variable for # of cells visited
+    unsigned int numberOfCellsInFill = 1;
+
+    // Queue Loop:
+    while (floodQueue.size() > 0)
+    {
+        // De-queue the current cell
+        T currentCell = floodQueue.front();
+        floodQueue.pop();
+
+        // Immediately find currentCell's possible neighbors (4 max if 2D, 6 max if 3D)
+        std::vector<T> possible_neighbors;
+        for (unsigned int n=0; n<2*dim; n++)
+        {
+            // Only include cells that should be marked
+            if (checkCell(currentCell->neighbor(n), di_end, solution_field, threshold_lower, threshold_upper))
+            {
+                possible_neighbors.push_back(currentCell->neighbor(n));
+            }
+        }
+
+        // Mark the enqueued cells
+        for (unsigned int i = 0; i < possible_neighbors.size(); i++)
+        {
+            possible_neighbors[i]->set_user_flag();
+            std::vector<dealii::Point<dim> > vertex_list;
+            for (unsigned int v=0; v<dealii::Utilities::fixed_power<dim>(2.0); v++)
+            {
+                vertex_list.push_back(possible_neighbors[i]->vertex(v));
+            }
+            grain_sets.back().addVertexList(vertex_list);
+
+            // Enqueue
+            floodQueue.emplace(possible_neighbors[i]);
+
+            ++numberOfCellsInFill;
+        }
+    }
+
+    //pcout << "Grain filled: found " << numberOfCellsInFill << " cells in grain.\n";
+
+    grain_assigned = true;
+}
 
 
 
