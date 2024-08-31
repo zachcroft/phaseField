@@ -8,8 +8,8 @@ set Number of dimensions = 3
 # (Domain size Z ignored in 2D)
 # =================================================================================
 # Each axes spans from zero to the specified length
-set Domain size X = 32
-set Domain size Y = 32
+set Domain size X = 64
+set Domain size Y = 64
 set Domain size Z = 32
 
 # =================================================================================

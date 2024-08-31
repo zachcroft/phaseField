@@ -12,12 +12,12 @@ FloodFiller<dim, degree>::calcGrainSets(dealii::FESystem<dim>      &fe,
                                         unsigned int                order_parameter_index,
                                         std::vector<GrainSet<dim>> &grain_sets)
 {
-  unsigned int grain_index = 0;
+  //unsigned int grain_index = 0;
 
   // Loop through the whole mesh and set the user flags to false (so everything
   // is considered unmarked)
-  typename dealii::DoFHandler<dim>::cell_iterator di = dof_handler.begin();
-  while (di != dof_handler.end())
+  typename dealii::DoFHandler<dim>::cell_iterator di = dof_handler.begin(level);
+  while (di != dof_handler.end(level))
     {
       di->clear_user_flag();
       ++di;
@@ -28,26 +28,26 @@ FloodFiller<dim, degree>::calcGrainSets(dealii::FESystem<dim>      &fe,
   grain_sets.back().setOrderParameterIndex(order_parameter_index);
 
   // The flood fill loop
-  di = dof_handler.begin();
-  while (di != dof_handler.end())
+  di = dof_handler.begin(level);
+  unsigned int numberOfCellsIterated = 0;
+  while (di != dof_handler.end(level))
     {
       if (!di->has_children())
         {
           bool grain_assigned = false;
           recursiveFloodFill<typename dealii::DoFHandler<dim>::cell_iterator>(
             di,
-            dof_handler.end(),
+            dof_handler.end(level),
             solution_field,
             threshold_lower,
             threshold_upper,
-            grain_index,
             grain_sets,
             grain_assigned);
 
           if (grain_assigned)
             {
               // Get the grain set initialized for the next grain to be found
-              grain_index++;
+              //grain_index++;
               GrainSet<dim> new_grain_set;
               new_grain_set.setOrderParameterIndex(order_parameter_index);
               grain_sets.push_back(new_grain_set);
@@ -55,13 +55,14 @@ FloodFiller<dim, degree>::calcGrainSets(dealii::FESystem<dim>      &fe,
         }
 
       ++di;
+      ++numberOfCellsIterated;
     }
 
   // If the last grain was initialized but empty, delete it
-  if (grain_sets.back().getVertexList().size() == 0)
-    {
-      grain_sets.pop_back();
-    }
+  //if (grain_sets.back().getVertexList().size() == 0)
+  //  {
+   //   grain_sets.pop_back();
+   // }
 
   // Generate global list of the grains, merging grains split between multiple
   // processors
@@ -74,6 +75,15 @@ FloodFiller<dim, degree>::calcGrainSets(dealii::FESystem<dim>      &fe,
       mergeSplitGrains(grain_sets);
     }
 }
+
+
+
+
+
+
+
+
+
 
 template <int dim, int degree>
 template <typename T>
