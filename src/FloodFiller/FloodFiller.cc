@@ -2,71 +2,66 @@
 
 #include <numeric>
 #include <iostream>
-#include <vector>
-#include <queue> 
 #include <map>
+#include <queue>
+#include <vector>
 
+// Function to calculate sets of grains described by 
+// a single order parameter
 template <int dim, int degree>
-void
-FloodFiller<dim, degree>::calcGrainSets(dealii::FESystem<dim>      &fe,
-                                        dealii::DoFHandler<dim>    &dof_handler,
-                                        vectorType                 *solution_field,
-                                        double                      threshold_lower,
-                                        double                      threshold_upper,
-                                        unsigned int                order_parameter_index,
-                                        std::vector<GrainSet<dim>> &grain_sets)
-{
-  //unsigned int grain_index = 0;
+void FloodFiller<dim, degree>::calcGrainSets(dealii::FESystem<dim> & fe, 
+                                            dealii::DoFHandler<dim> &dof_handler, 
+                                            vectorType* solution_field, 
+                                            double threshold_lower, 
+                                            double threshold_upper, 
+                                            unsigned int order_parameter_index, 
+                                            std::vector<GrainSet<dim>> & grain_sets){
 
-  // Loop through the whole mesh and set the user flags to false (so everything
-  // is considered unmarked)
-  typename dealii::DoFHandler<dim>::cell_iterator di = dof_handler.begin(level);
-  while (di != dof_handler.end(level))
+    // Loop through the whole mesh and set the user flags to false 
+    // (so everything is considered unmarked)
+    typename dealii::DoFHandler<dim>::cell_iterator di = dof_handler.begin(level);
+    while (di != dof_handler.end(level))
     {
-      di->clear_user_flag();
-      ++di;
+        if(!di->has_children()){
+            // Clear each cell of the 'marked' marking
+            di->clear_user_flag();
+        }
+        ++di;
     }
 
-  GrainSet<dim> grain_set;
-  grain_sets.push_back(grain_set);
-  grain_sets.back().setOrderParameterIndex(order_parameter_index);
+    GrainSet<dim> grain_set;
+    grain_sets.push_back(grain_set);
+    grain_sets.back().setOrderParameterIndex(order_parameter_index);
 
-  // The flood fill loop
-  di = dof_handler.begin(level);
-  unsigned int numberOfCellsIterated = 0;
-  while (di != dof_handler.end(level))
+    // The flood fill loop
+    di = dof_handler.begin(level);
+    unsigned int numberOfCellsIterated = 0;
+    while (di != dof_handler.end(level))
     {
-      if (!di->has_children())
-        {
-          bool grain_assigned = false;
-          queueFloodFill<typename dealii::DoFHandler<dim>::cell_iterator>(
-            di,
-            dof_handler.end(level),
-            solution_field,
-            threshold_lower,
-            threshold_upper,
-            grain_sets,
-            grain_assigned);
+        if (!di->has_children()){
+            bool grain_assigned = false;
 
-          if (grain_assigned)
-            {
-              // Get the grain set initialized for the next grain to be found
-              //grain_index++;
-              GrainSet<dim> new_grain_set;
-              new_grain_set.setOrderParameterIndex(order_parameter_index);
-              grain_sets.push_back(new_grain_set);
+            // Fill in the current grain
+            queueFloodFill<typename dealii::DoFHandler<dim>::cell_iterator>(di, 
+                                                                            dof_handler.end(level), 
+                                                                            solution_field, 
+                                                                            threshold_lower, 
+                                                                            threshold_upper, 
+                                                                            grain_sets, 
+                                                                            grain_assigned);
+
+            // Check if the grain has been assigned to a grain set.
+            // If it hasn't, add it to a new grain set.
+            if (grain_assigned){
+                GrainSet<dim> new_grain_set;
+                new_grain_set.setOrderParameterIndex(order_parameter_index);
+                grain_sets.push_back(new_grain_set);
             }
         }
 
-      ++di;
-      ++numberOfCellsIterated;
+        ++di;
+        ++numberOfCellsIterated;
     }
-
-  // If the last grain was initialized but empty, delete it
-  //if (grain_sets.back().getVertexList().size() == 0)
-  //  {
-   //   grain_sets.pop_back();
-   // }
 
   // Generate global list of the grains, merging grains split between multiple
   // processors
@@ -79,7 +74,6 @@ FloodFiller<dim, degree>::calcGrainSets(dealii::FESystem<dim>      &fe,
       mergeSplitGrains(grain_sets);
     }
 }
-
 
 
 // Function for performing the flood fill operation
@@ -160,65 +154,109 @@ void FloodFiller<dim, degree>::queueFloodFill(T di,
     grain_assigned = true;
 }
 
-
-
-
 template <int dim, int degree>
 template <typename T>
-void
-FloodFiller<dim, degree>::recursiveFloodFill(T                           di,
-                                             T                           di_end,
-                                             vectorType                 *solution_field,
-                                             double                      threshold_lower,
-                                             double                      threshold_upper,
-                                             unsigned int               &grain_index,
-                                             std::vector<GrainSet<dim>> &grain_sets,
-                                             bool                       &grain_assigned)
+bool FloodFiller<dim, degree>::checkCell(T di, T di_end, 
+                                        vectorType* solution_field,
+                                        double threshold_lower, 
+                                        double threshold_upper)
 {
-  if (di != di_end)
+    if (di != di_end && !di->user_flag_set() && !di->has_children() && di->is_locally_owned())
     {
-      // Check if the cell has been marked yet
-      bool cellMarked = di->user_flag_set();
+        std::vector<double> var_values(num_quad_points);
+        fe_values.reinit(di);
+        fe_values.get_function_values(*solution_field, var_values);
 
-      if (!cellMarked)
+        /*
+        // Older version for average value
+        double ele_val = 0.0;
+        for (unsigned int q_point=0; q_point < num_quad_points; ++q_point){
+          for (unsigned int i=0; i < dofs_per_cell; ++i){
+            ele_val += fe_values.shape_value(i, q_point) * var_values[q_point] * quadrature.weight(q_point);
+          }
+        }
+
+        std::cout << "ele_val: " << ele_val << std::endl;
+
+        if (threshold_lower < ele_val && ele_val < threshold_upper){
+          return true;
+        }
+        */
+
+        
+        // Newer version for most frequent value
+        double ele_val;
+        std::map<double, int> quadratureValues;
+        int maxNumberSeen = 0;
+        double mostCommonQPointValue = 0;
+
+        for (unsigned int q_point = 0; q_point < num_quad_points; ++q_point)
         {
-          if (di->has_children())
+
+            if (var_values[q_point] > 0){
+              ++quadratureValues[var_values[q_point]];
+            }
+            if (quadratureValues[var_values[q_point]] > maxNumberSeen)
             {
-              // Call recursiveFloodFill on the element's children
-              for (unsigned int n = 0; n < di->n_children(); n++)
-                {
-                  recursiveFloodFill<T>(di->child(n),
-                                        di_end,
-                                        solution_field,
-                                        threshold_lower,
-                                        threshold_upper,
-                                        grain_index,
-                                        grain_sets,
-                                        grain_assigned);
+                maxNumberSeen = quadratureValues[var_values[q_point]];
+                mostCommonQPointValue = var_values[q_point];
+            }
+        }
+
+        ele_val = mostCommonQPointValue;
+
+        //std::cout << "ele_val: " << ele_val << std::endl;
+
+        if (threshold_lower < ele_val && ele_val < threshold_upper)
+        {
+            return true;
+        }
+        
+
+
+    }
+    return false;
+}
+
+
+
+
+// Function for performing the flood fill operation.
+template <int dim, int degree>
+template <typename T>
+void FloodFiller<dim, degree>::recursiveFloodFill(T di, T di_end, vectorType* solution_field, double threshold_lower, double threshold_upper, unsigned int & grain_index, std::vector<GrainSet<dim>> & grain_sets, bool & grain_assigned){
+
+    if (di != di_end){
+
+        // Check if the cell has been marked yet
+        bool cellMarked = di->user_flag_set();
+
+        if (!cellMarked){
+
+            if (di->has_children()){
+                // Call recursiveFloodFill on the element's children
+                for (unsigned int n=0; n<di->n_children(); n++){
+                    recursiveFloodFill<T>(di->child(n), di_end, solution_field, threshold_lower, threshold_upper,  grain_index, grain_sets, grain_assigned);
                 }
             }
-          else
-            {
-              if (di->is_locally_owned())
-                {
-                  di->set_user_flag();
+            else{
+                if (di->is_locally_owned()){
+                    di->set_user_flag();
 
-                  dealii::FEValues<dim> fe_values(*fe, quadrature, dealii::update_values);
-                  std::vector<double>   var_values(num_quad_points);
-                  std::vector<dealii::Point<dim>> q_point_list(num_quad_points);
+                    dealii::FEValues<dim> fe_values (*fe, quadrature, dealii::update_values);
+                    std::vector<double> var_values(num_quad_points);
+                    std::vector<dealii::Point<dim> > q_point_list(num_quad_points);
 
-                  // Get the most common value for the element
-                  fe_values.reinit(di);
-                  fe_values.get_function_values(*solution_field, var_values);
-
-                  double                ele_val;
-                  std::map<double, int> quadratureValues;
-                  int                   maxNumberSeen         = 0;
-                  double                mostCommonQPointValue = -1;
-                  for (unsigned int q_point = 0; q_point < num_quad_points; ++q_point)
-                    {
-                      // Add the number of times that var_values[q_point] has
-                      // been seen
+                    // Get the most common value for the element
+                    fe_values.reinit(di);
+                    fe_values.get_function_values(*solution_field, var_values);
+                  
+                    double ele_val;
+                    std::map<double, int> quadratureValues;
+                    int maxNumberSeen = 0;
+                    double mostCommonQPointValue = -1;
+                    for (unsigned int q_point=0; q_point<num_quad_points; ++q_point){
+                      // Add the number of times that var_values[q_point] has been seen
                       ++quadratureValues[var_values[q_point]];
                       if (quadratureValues[var_values[q_point]] > maxNumberSeen)
                         {
@@ -268,8 +306,8 @@ void
 FloodFiller<dim, degree>::createGlobalGrainSetList(
   std::vector<GrainSet<dim>> &grain_sets) const
 {
-  int numProcs = dealii::Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD);
-  int thisProc = dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
+    int numProcs=dealii::Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD);
+	//int thisProc=dealii::Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
 
   unsigned int num_grains_local = grain_sets.size();
 
