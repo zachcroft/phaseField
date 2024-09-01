@@ -398,6 +398,20 @@ protected:
   void
   applyInitialConditions();
 
+  // A function to clear order parameter fields prior to remapping
+  void 
+  clear_op_fields();
+
+  // A function to locate grains and populate grain_sets using
+  // a flood fill algorithm
+  void 
+  locate_grains(unsigned int min_id,
+                unsigned int max_id,
+                unsigned int scalar_field_index,
+                vectorType& grain_index_field,
+                FloodFiller<dim, degree>& flood_filler,
+                std::vector<GrainSet<dim>>& grain_sets);
+
   // --------------------------------------------------------------------------
   // Methods for saving and loading checkpoints
   // --------------------------------------------------------------------------

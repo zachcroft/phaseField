@@ -38,6 +38,63 @@ public:
   }
 };
 
+// REFACTORING (1)
+template <int dim, int degree>
+void
+MatrixFreePDE<dim, degree>::clear_op_fields()
+{
+  // Clear the order parameter fields
+  unsigned int op_list_index = 0;
+  for (unsigned int var_index = 0; var_index < userInputs.number_of_variables;
+        var_index++)
+    {
+      if (op_list_index < userInputs.variables_for_remapping.size())
+        {
+          if (var_index == userInputs.variables_for_remapping.at(op_list_index))
+            {
+              *solutionSet[var_index] = 0.0;
+              op_list_index++;
+            }
+        }
+    }
+}
+
+// REFACTORING (2)
+template <int dim, int degree>
+void
+MatrixFreePDE<dim, degree>::locate_grains(unsigned int min_id,
+                                          unsigned int max_id,
+                                          unsigned int scalar_field_index,
+                                          vectorType& grain_index_field,
+                                          FloodFiller<dim, degree>& flood_filler,
+                                          std::vector<GrainSet<dim>>& grain_sets)
+{
+  for (unsigned int id = min_id; id < max_id + 1; id++)
+        {
+          pcout << "Locating grain " << id << "...\n";
+
+          std::vector<GrainSet<dim>> grain_sets_single_id;
+
+          flood_filler.calcGrainSets(*FESet.at(scalar_field_index),
+                                     *dofHandlersSet_nonconst.at(scalar_field_index),
+                                     &grain_index_field,
+                                     (double) id - userInputs.order_parameter_threshold,
+                                     (double) id + userInputs.order_parameter_threshold,
+                                     0,
+                                     grain_sets_single_id);
+
+          for (unsigned int g = 0; g < grain_sets_single_id.size(); g++)
+            {
+              grain_sets_single_id.at(g).setGrainIndex(id);
+            }
+
+          grain_sets.insert(grain_sets.end(),
+                            grain_sets_single_id.begin(),
+                            grain_sets_single_id.end());
+        }
+}
+
+
 // methods to apply initial conditions
 template <int dim, int degree>
 void
@@ -73,28 +130,10 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
     //}
     
 
-
-
   if (userInputs.load_grain_structure)
     {
-      // Create the dummy field
-      vectorType grain_index_field;
-
-      // Clear the order parameter fields
-      unsigned int op_list_index = 0;
-      for (unsigned int var_index = 0; var_index < userInputs.number_of_variables;
-           var_index++)
-        {
-          if (op_list_index < userInputs.variables_for_remapping.size())
-            {
-              if (var_index == userInputs.variables_for_remapping.at(op_list_index))
-                {
-                  *solutionSet[var_index] = 0.0;
-                  op_list_index++;
-                }
-            }
-        }
-
+      
+      clear_op_fields();
       simplified_grain_representations.clear();
 
       // Get the index of one of the scalar fields
@@ -108,14 +147,15 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
             }
         }
 
+
+      // Create the dummy field for holding grain IDs
+      vectorType grain_index_field;
       matrixFreeObject.initialize_dof_vector(grain_index_field, scalar_field_index);
 
       // Declare the PField types and containers
       typedef PRISMS::PField<double *, double, dim> ScalarField;
       typedef PRISMS::Body<double *, dim>           Body;
       Body                                          body;
-
-      // Create the filename of the the file to be loaded
 
       // Load the data from the file using a PField
       std::string filename = userInputs.grain_structure_filename;
@@ -140,17 +180,24 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
 
       grain_index_field.update_ghost_values();
 
-      // Get the max and min grain ids
+      // Get the max and min grain ids in the structure
       unsigned int max_id = (unsigned int) grain_index_field.linfty_norm();
       unsigned int min_id = 0;
 
       // Now locate all of the grains and create simplified representations of
       // them
       QGaussLobatto<dim>       quadrature2(degree + 1);
-      FloodFiller<dim, degree> flood_filler(*FESet.at(scalar_field_index), quadrature2, pcout, userInputs.refine_factor);
+      FloodFiller<dim, degree> flood_filler(*FESet.at(scalar_field_index), 
+                                            quadrature2, 
+                                            pcout, 
+                                            userInputs.refine_factor);
 
+      // Locate grains via flood fill and generate grains sets
       pcout << "Locating the grains...\n";
       std::vector<GrainSet<dim>> grain_sets;
+      locate_grains(min_id, max_id, scalar_field_index, 
+                    grain_index_field, flood_filler, grain_sets);
+      /*
       for (unsigned int id = min_id; id < max_id + 1; id++)
         {
           pcout << "Locating grain " << id << "...\n";
@@ -174,7 +221,10 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
                             grain_sets_single_id.begin(),
                             grain_sets_single_id.end());
         }
+        */
 
+
+      // Generate simplified represenations for grain sets
       pcout << "Generating simplified representations of the grains...\n";
       for (unsigned int g = 0; g < grain_sets.size(); g++)
         {
@@ -204,8 +254,9 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
           simplified_grain_representations.push_back(simplified_grain_representation);
         }
 
-      // Delete grains with very small radii that correspond to a single
-      // interfacial element
+
+
+      // Delete grains with very small radii 
       for (unsigned int g = 0; g < simplified_grain_representations.size(); g++)
         {
           if (simplified_grain_representations.at(g).getRadius() <
@@ -217,6 +268,7 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
             }
         }
 
+      // Reassign grains based on distance
       pcout << "Reassigning the grains to new order parameters...\n";
       SimplifiedGrainManipulator<dim> simplified_grain_manipulator;
       simplified_grain_manipulator.reassignGrains(simplified_grain_representations,
@@ -245,6 +297,7 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
             }
         }
 
+      // Remap grains
       pcout << "Placing the grains in their new order parameters...\n";
       OrderParameterRemapper<dim> order_parameter_remapper;
       order_parameter_remapper.remap_from_index_field(
@@ -267,7 +320,7 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
                       (1.0 * degree * std::sqrt(1.0 * dim));
       double dt_for_smoothing = 0.25 * min_dx * min_dx / (1.0 * dim);
 
-      op_list_index = 0;
+      unsigned int op_list_index = 0;
       for (unsigned int fieldIndex = 0; fieldIndex < fields.size(); fieldIndex++)
         {
           if (op_list_index < userInputs.variables_for_remapping.size())
@@ -333,8 +386,11 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
                 }
             }
         }
-    }
+    } //end of if load_grain_structure 
 
+
+
+  // Assign ICs based on 
   unsigned int op_list_index = 0;
   for (unsigned int var_index = 0; var_index < userInputs.number_of_variables;
        var_index++)
