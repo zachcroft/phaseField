@@ -412,6 +412,9 @@ protected:
                 FloodFiller<dim, degree>& flood_filler,
                 std::vector<GrainSet<dim>>& grain_sets);
 
+  void
+  smooth_order_parameters();
+
   // --------------------------------------------------------------------------
   // Methods for saving and loading checkpoints
   // --------------------------------------------------------------------------

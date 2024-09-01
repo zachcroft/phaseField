@@ -94,6 +94,92 @@ MatrixFreePDE<dim, degree>::locate_grains(unsigned int min_id,
         }
 }
 
+// REFACTORING (3)
+template <int dim, int degree>
+void
+MatrixFreePDE<dim, degree>::smooth_order_parameters()
+{
+  // Smooth the order parameters according to Fick's 2nd Law
+  // In the time cycle below, we evolve the weak form of Eq.:
+  // field_i^(n+1)=field_i^(n)+D*dt*Laplacian(field_i^(n)) Old
+  // dt_for_smoothing double dt_for_smoothing =
+  // dealii::GridTools::minimal_cell_diameter(triangulation)/1000.0; NEW
+  // selection of dt_for_smoothing based on dt_max=(dx^2)/2*dim*D, where
+  // D=1, addording to the von Neumann stability condition We chose
+  // dt_for_smoothing=0.25*dt_max
+  double min_dx = dealii::GridTools::minimal_cell_diameter(triangulation) /
+                  (1.0 * degree * std::sqrt(1.0 * dim));
+  double dt_for_smoothing = 0.25 * min_dx * min_dx / (1.0 * dim);
+
+  unsigned int op_list_index = 0;
+  for (unsigned int fieldIndex = 0; fieldIndex < fields.size(); fieldIndex++)
+    {
+      if (op_list_index < userInputs.variables_for_remapping.size())
+        {
+          if (fieldIndex == userInputs.variables_for_remapping.at(op_list_index))
+            {
+              for (unsigned int cycle = 0;
+                    cycle < userInputs.num_grain_smoothing_cycles;
+                    cycle++)
+                {
+                  // Calculates the Laplace RHS and stores the information
+                  // in residualSet
+                  computeLaplaceRHS(fieldIndex);
+                  if (fields[fieldIndex].type == SCALAR)
+                    {
+#if (DEAL_II_VERSION_MAJOR == 9 && DEAL_II_VERSION_MINOR < 4)
+                      unsigned int invM_size = invMscalar.local_size();
+                      for (unsigned int dof = 0;
+                            dof < solutionSet[fieldIndex]->local_size();
+                            ++dof)
+                        {
+#else
+                      unsigned int invM_size = invMscalar.locally_owned_size();
+                      for (unsigned int dof = 0;
+                            dof < solutionSet[fieldIndex]->locally_owned_size();
+                            ++dof)
+                        {
+#endif
+                          solutionSet[fieldIndex]->local_element(dof) =
+                            solutionSet[fieldIndex]->local_element(dof) -
+                            invMscalar.local_element(dof % invM_size) *
+                              residualSet[fieldIndex]->local_element(dof) *
+                              dt_for_smoothing;
+                        }
+                    }
+                  else if (fields[fieldIndex].type == VECTOR)
+                    {
+#if (DEAL_II_VERSION_MAJOR == 9 && DEAL_II_VERSION_MINOR < 4)
+                      unsigned int invM_size = invMvector.local_size();
+                      for (unsigned int dof = 0;
+                            dof < solutionSet[fieldIndex]->local_size();
+                            ++dof)
+                        {
+#else
+                      unsigned int invM_size = invMvector.locally_owned_size();
+                      for (unsigned int dof = 0;
+                            dof < solutionSet[fieldIndex]->locally_owned_size();
+                            ++dof)
+                        {
+#endif
+                          solutionSet[fieldIndex]->local_element(dof) =
+                            solutionSet[fieldIndex]->local_element(dof) -
+                            invMvector.local_element(dof % invM_size) *
+                              residualSet[fieldIndex]->local_element(dof) *
+                              dt_for_smoothing;
+                        }
+                    }
+
+                  solutionSet[fieldIndex]->update_ghost_values();
+                }
+
+              op_list_index++;
+            }
+        }
+    }
+}
+
+
 
 // methods to apply initial conditions
 template <int dim, int degree>
@@ -147,11 +233,12 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
             }
         }
 
-
       // Create the dummy field for holding grain IDs
       vectorType grain_index_field;
       matrixFreeObject.initialize_dof_vector(grain_index_field, scalar_field_index);
 
+
+      //
       // Declare the PField types and containers
       typedef PRISMS::PField<double *, double, dim> ScalarField;
       typedef PRISMS::Body<double *, dim>           Body;
@@ -197,31 +284,6 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
       std::vector<GrainSet<dim>> grain_sets;
       locate_grains(min_id, max_id, scalar_field_index, 
                     grain_index_field, flood_filler, grain_sets);
-      /*
-      for (unsigned int id = min_id; id < max_id + 1; id++)
-        {
-          pcout << "Locating grain " << id << "...\n";
-
-          std::vector<GrainSet<dim>> grain_sets_single_id;
-
-          flood_filler.calcGrainSets(*FESet.at(scalar_field_index),
-                                     *dofHandlersSet_nonconst.at(scalar_field_index),
-                                     &grain_index_field,
-                                     (double) id - userInputs.order_parameter_threshold,
-                                     (double) id + userInputs.order_parameter_threshold,
-                                     0,
-                                     grain_sets_single_id);
-
-          for (unsigned int g = 0; g < grain_sets_single_id.size(); g++)
-            {
-              grain_sets_single_id.at(g).setGrainIndex(id);
-            }
-
-          grain_sets.insert(grain_sets.end(),
-                            grain_sets_single_id.begin(),
-                            grain_sets_single_id.end());
-        }
-        */
 
 
       // Generate simplified represenations for grain sets
@@ -297,6 +359,9 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
             }
         }
 
+
+
+
       // Remap grains
       pcout << "Placing the grains in their new order parameters...\n";
       OrderParameterRemapper<dim> order_parameter_remapper;
@@ -308,84 +373,10 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
         FESet.at(scalar_field_index)->dofs_per_cell,
         userInputs.buffer_between_grains);
 
-      // Smooth the order parameters according to Fick's 2nd Law
-      // In the time cycle below, we evolve the weak form of Eq.:
-      // field_i^(n+1)=field_i^(n)+D*dt*Laplacian(field_i^(n)) Old
-      // dt_for_smoothing double dt_for_smoothing =
-      // dealii::GridTools::minimal_cell_diameter(triangulation)/1000.0; NEW
-      // selection of dt_for_smoothing based on dt_max=(dx^2)/2*dim*D, where
-      // D=1, addording to the von Neumann stability condition We chose
-      // dt_for_smoothing=0.25*dt_max
-      double min_dx = dealii::GridTools::minimal_cell_diameter(triangulation) /
-                      (1.0 * degree * std::sqrt(1.0 * dim));
-      double dt_for_smoothing = 0.25 * min_dx * min_dx / (1.0 * dim);
+      
+      smooth_order_parameters();
 
-      unsigned int op_list_index = 0;
-      for (unsigned int fieldIndex = 0; fieldIndex < fields.size(); fieldIndex++)
-        {
-          if (op_list_index < userInputs.variables_for_remapping.size())
-            {
-              if (fieldIndex == userInputs.variables_for_remapping.at(op_list_index))
-                {
-                  for (unsigned int cycle = 0;
-                       cycle < userInputs.num_grain_smoothing_cycles;
-                       cycle++)
-                    {
-                      // Calculates the Laplace RHS and stores the information
-                      // in residualSet
-                      computeLaplaceRHS(fieldIndex);
-                      if (fields[fieldIndex].type == SCALAR)
-                        {
-#if (DEAL_II_VERSION_MAJOR == 9 && DEAL_II_VERSION_MINOR < 4)
-                          unsigned int invM_size = invMscalar.local_size();
-                          for (unsigned int dof = 0;
-                               dof < solutionSet[fieldIndex]->local_size();
-                               ++dof)
-                            {
-#else
-                          unsigned int invM_size = invMscalar.locally_owned_size();
-                          for (unsigned int dof = 0;
-                               dof < solutionSet[fieldIndex]->locally_owned_size();
-                               ++dof)
-                            {
-#endif
-                              solutionSet[fieldIndex]->local_element(dof) =
-                                solutionSet[fieldIndex]->local_element(dof) -
-                                invMscalar.local_element(dof % invM_size) *
-                                  residualSet[fieldIndex]->local_element(dof) *
-                                  dt_for_smoothing;
-                            }
-                        }
-                      else if (fields[fieldIndex].type == VECTOR)
-                        {
-#if (DEAL_II_VERSION_MAJOR == 9 && DEAL_II_VERSION_MINOR < 4)
-                          unsigned int invM_size = invMvector.local_size();
-                          for (unsigned int dof = 0;
-                               dof < solutionSet[fieldIndex]->local_size();
-                               ++dof)
-                            {
-#else
-                          unsigned int invM_size = invMvector.locally_owned_size();
-                          for (unsigned int dof = 0;
-                               dof < solutionSet[fieldIndex]->locally_owned_size();
-                               ++dof)
-                            {
-#endif
-                              solutionSet[fieldIndex]->local_element(dof) =
-                                solutionSet[fieldIndex]->local_element(dof) -
-                                invMvector.local_element(dof % invM_size) *
-                                  residualSet[fieldIndex]->local_element(dof) *
-                                  dt_for_smoothing;
-                            }
-                        }
 
-                      solutionSet[fieldIndex]->update_ghost_values();
-                    }
-
-                  op_list_index++;
-                }
-            }
-        }
     } //end of if load_grain_structure 
 
 
