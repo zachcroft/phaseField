@@ -1,7 +1,6 @@
 // methods to apply initial conditions
 
 #include "../../include/initialConditions.h"
-
 #include "../../include/IntegrationTools/PField.hh"
 #include "../../include/OrderParameterRemapper.h"
 #include "../../include/matrixFreePDE.h"
@@ -38,6 +37,8 @@ public:
   }
 };
 
+
+
 // REFACTORING (1)
 template <int dim, int degree>
 void
@@ -58,6 +59,8 @@ MatrixFreePDE<dim, degree>::clear_op_fields()
         }
     }
 }
+
+
 
 // REFACTORING (2)
 template <int dim, int degree>
@@ -93,6 +96,8 @@ MatrixFreePDE<dim, degree>::locate_grains(unsigned int min_id,
                             grain_sets_single_id.end());
         }
 }
+
+
 
 // REFACTORING (3)
 template <int dim, int degree>
@@ -181,7 +186,7 @@ MatrixFreePDE<dim, degree>::smooth_order_parameters()
 
 
 
-// methods to apply initial conditions
+// Method to apply initial conditions
 template <int dim, int degree>
 void
 MatrixFreePDE<dim, degree>::applyInitialConditions()
@@ -237,8 +242,6 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
       vectorType grain_index_field;
       matrixFreeObject.initialize_dof_vector(grain_index_field, scalar_field_index);
 
-
-      //
       // Declare the PField types and containers
       typedef PRISMS::PField<double *, double, dim> ScalarField;
       typedef PRISMS::Body<double *, dim>           Body;
@@ -358,8 +361,6 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
                     << simplified_grain_representations.at(g).getCenter()(2) << std::endl;
             }
         }
-
-
 
 
       // Remap grains
