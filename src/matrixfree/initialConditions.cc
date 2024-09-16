@@ -1,6 +1,7 @@
 // methods to apply initial conditions
 
 #include "../../include/initialConditions.h"
+
 #include "../../include/IntegrationTools/PField.hh"
 #include "../../include/OrderParameterRemapper.h"
 #include "../../include/matrixFreePDE.h"
@@ -37,8 +38,6 @@ public:
   }
 };
 
-
-
 // REFACTORING (1)
 template <int dim, int degree>
 void
@@ -47,7 +46,7 @@ MatrixFreePDE<dim, degree>::clear_op_fields()
   // Clear the order parameter fields
   unsigned int op_list_index = 0;
   for (unsigned int var_index = 0; var_index < userInputs.number_of_variables;
-        var_index++)
+       var_index++)
     {
       if (op_list_index < userInputs.variables_for_remapping.size())
         {
@@ -60,44 +59,40 @@ MatrixFreePDE<dim, degree>::clear_op_fields()
     }
 }
 
-
-
 // REFACTORING (2)
 template <int dim, int degree>
 void
-MatrixFreePDE<dim, degree>::locate_grains(unsigned int min_id,
-                                          unsigned int max_id,
-                                          unsigned int scalar_field_index,
-                                          vectorType& grain_index_field,
-                                          FloodFiller<dim, degree>& flood_filler,
-                                          std::vector<GrainSet<dim>>& grain_sets)
+MatrixFreePDE<dim, degree>::locate_grains(unsigned int                min_id,
+                                          unsigned int                max_id,
+                                          unsigned int                scalar_field_index,
+                                          vectorType                 &grain_index_field,
+                                          FloodFiller<dim, degree>   &flood_filler,
+                                          std::vector<GrainSet<dim>> &grain_sets)
 {
   for (unsigned int id = min_id; id < max_id + 1; id++)
+    {
+      pcout << "Locating grain " << id << "...\n";
+
+      std::vector<GrainSet<dim>> grain_sets_single_id;
+
+      flood_filler.calcGrainSets(*FESet.at(scalar_field_index),
+                                 *dofHandlersSet_nonconst.at(scalar_field_index),
+                                 &grain_index_field,
+                                 (double) id - userInputs.order_parameter_threshold,
+                                 (double) id + userInputs.order_parameter_threshold,
+                                 0,
+                                 grain_sets_single_id);
+
+      for (unsigned int g = 0; g < grain_sets_single_id.size(); g++)
         {
-          pcout << "Locating grain " << id << "...\n";
-
-          std::vector<GrainSet<dim>> grain_sets_single_id;
-
-          flood_filler.calcGrainSets(*FESet.at(scalar_field_index),
-                                     *dofHandlersSet_nonconst.at(scalar_field_index),
-                                     &grain_index_field,
-                                     (double) id - userInputs.order_parameter_threshold,
-                                     (double) id + userInputs.order_parameter_threshold,
-                                     0,
-                                     grain_sets_single_id);
-
-          for (unsigned int g = 0; g < grain_sets_single_id.size(); g++)
-            {
-              grain_sets_single_id.at(g).setGrainIndex(id);
-            }
-
-          grain_sets.insert(grain_sets.end(),
-                            grain_sets_single_id.begin(),
-                            grain_sets_single_id.end());
+          grain_sets_single_id.at(g).setGrainIndex(id);
         }
+
+      grain_sets.insert(grain_sets.end(),
+                        grain_sets_single_id.begin(),
+                        grain_sets_single_id.end());
+    }
 }
-
-
 
 // REFACTORING (3)
 template <int dim, int degree>
@@ -123,9 +118,8 @@ MatrixFreePDE<dim, degree>::smooth_order_parameters()
         {
           if (fieldIndex == userInputs.variables_for_remapping.at(op_list_index))
             {
-              for (unsigned int cycle = 0;
-                    cycle < userInputs.num_grain_smoothing_cycles;
-                    cycle++)
+              for (unsigned int cycle = 0; cycle < userInputs.num_grain_smoothing_cycles;
+                   cycle++)
                 {
                   // Calculates the Laplace RHS and stores the information
                   // in residualSet
@@ -135,14 +129,14 @@ MatrixFreePDE<dim, degree>::smooth_order_parameters()
 #if (DEAL_II_VERSION_MAJOR == 9 && DEAL_II_VERSION_MINOR < 4)
                       unsigned int invM_size = invMscalar.local_size();
                       for (unsigned int dof = 0;
-                            dof < solutionSet[fieldIndex]->local_size();
-                            ++dof)
+                           dof < solutionSet[fieldIndex]->local_size();
+                           ++dof)
                         {
 #else
                       unsigned int invM_size = invMscalar.locally_owned_size();
                       for (unsigned int dof = 0;
-                            dof < solutionSet[fieldIndex]->locally_owned_size();
-                            ++dof)
+                           dof < solutionSet[fieldIndex]->locally_owned_size();
+                           ++dof)
                         {
 #endif
                           solutionSet[fieldIndex]->local_element(dof) =
@@ -157,14 +151,14 @@ MatrixFreePDE<dim, degree>::smooth_order_parameters()
 #if (DEAL_II_VERSION_MAJOR == 9 && DEAL_II_VERSION_MINOR < 4)
                       unsigned int invM_size = invMvector.local_size();
                       for (unsigned int dof = 0;
-                            dof < solutionSet[fieldIndex]->local_size();
-                            ++dof)
+                           dof < solutionSet[fieldIndex]->local_size();
+                           ++dof)
                         {
 #else
                       unsigned int invM_size = invMvector.locally_owned_size();
                       for (unsigned int dof = 0;
-                            dof < solutionSet[fieldIndex]->locally_owned_size();
-                            ++dof)
+                           dof < solutionSet[fieldIndex]->locally_owned_size();
+                           ++dof)
                         {
 #endif
                           solutionSet[fieldIndex]->local_element(dof) =
@@ -184,46 +178,42 @@ MatrixFreePDE<dim, degree>::smooth_order_parameters()
     }
 }
 
-
-
 // Method to apply initial conditions
 template <int dim, int degree>
 void
 MatrixFreePDE<dim, degree>::applyInitialConditions()
 {
-    // Test for rank 0 binary read
+  // Test for rank 0 binary read
 
-    // Begin section for binary read in
-    std::cout << "Reading .dat file..." << std::endl;
-    std::vector<double> data;
-    std::ifstream dataFile("360cubed_singleS3_grain.dat", std::ios::in | std::ios::binary);
-    double dbuf;
-    char buf[8];
-    unsigned long bindata_totsize = 361*361*361;
-    data.reserve(bindata_totsize);
+  // Begin section for binary read in
+  std::cout << "Reading .dat file..." << std::endl;
+  std::vector<double> data;
+  std::ifstream dataFile("360cubed_singleS3_grain.dat", std::ios::in | std::ios::binary);
+  double        dbuf;
+  char          buf[8];
+  unsigned long bindata_totsize = 361 * 361 * 361;
+  data.reserve(bindata_totsize);
 
-    // Read the .dat file
-    for (unsigned long i=0; i<bindata_totsize; i++)
+  // Read the .dat file
+  for (unsigned long i = 0; i < bindata_totsize; i++)
     {
-        dataFile.read(buf,8);
-        memcpy(&dbuf, &buf, sizeof data[0]);
-        data.push_back(dbuf);
+      dataFile.read(buf, 8);
+      memcpy(&dbuf, &buf, sizeof data[0]);
+      data.push_back(dbuf);
     }
-    dataFile.close();
+  dataFile.close();
 
-    std::cout << "Done." << std::endl;
-    // End section for binary read in
+  std::cout << "Done." << std::endl;
+  // End section for binary read in
 
-    // Print contents to test if read in was successful
-    //for (unsigned int i = 0; i < data.size(); i++)
-    //{
-    //    std::cout << data[i] << std::endl;
-    //}
-    
+  // Print contents to test if read in was successful
+  // for (unsigned int i = 0; i < data.size(); i++)
+  //{
+  //    std::cout << data[i] << std::endl;
+  //}
 
   if (userInputs.load_grain_structure)
     {
-      
       clear_op_fields();
       simplified_grain_representations.clear();
 
@@ -251,22 +241,19 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
       std::string filename = userInputs.grain_structure_filename;
       filename += ".vtk";
 
-      //body.read_vtk(filename);
-      //ScalarField &id_field =
-      //  body.find_scalar_field(userInputs.grain_structure_variable_name);
+      // body.read_vtk(filename);
+      // ScalarField &id_field =
+      //   body.find_scalar_field(userInputs.grain_structure_variable_name);
 
       pcout << "Applying PField initial condition...\n";
 
-      //VectorTools::interpolate(*dofHandlersSet[scalar_field_index],
-      //                         InitialConditionPField<dim>(0, id_field),
-      //                         grain_index_field);
-      VectorTools::interpolate(*dofHandlersSet[scalar_field_index],
-                                           InitialCondition<dim, degree>(scalar_field_index,
-                                                                         userInputs,
-                                                                         this,
-                                                                         data),
-                                           grain_index_field);
-      
+      // VectorTools::interpolate(*dofHandlersSet[scalar_field_index],
+      //                          InitialConditionPField<dim>(0, id_field),
+      //                          grain_index_field);
+      VectorTools::interpolate(
+        *dofHandlersSet[scalar_field_index],
+        InitialCondition<dim, degree>(scalar_field_index, userInputs, this, data),
+        grain_index_field);
 
       grain_index_field.update_ghost_values();
 
@@ -277,17 +264,20 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
       // Now locate all of the grains and create simplified representations of
       // them
       QGaussLobatto<dim>       quadrature2(degree + 1);
-      FloodFiller<dim, degree> flood_filler(*FESet.at(scalar_field_index), 
-                                            quadrature2, 
-                                            pcout, 
+      FloodFiller<dim, degree> flood_filler(*FESet.at(scalar_field_index),
+                                            quadrature2,
+                                            pcout,
                                             userInputs.refine_factor);
 
       // Locate grains via flood fill and generate grains sets
       pcout << "Locating the grains...\n";
       std::vector<GrainSet<dim>> grain_sets;
-      locate_grains(min_id, max_id, scalar_field_index, 
-                    grain_index_field, flood_filler, grain_sets);
-
+      locate_grains(min_id,
+                    max_id,
+                    scalar_field_index,
+                    grain_index_field,
+                    flood_filler,
+                    grain_sets);
 
       // Generate simplified represenations for grain sets
       pcout << "Generating simplified representations of the grains...\n";
@@ -319,9 +309,7 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
           simplified_grain_representations.push_back(simplified_grain_representation);
         }
 
-
-
-      // Delete grains with very small radii 
+      // Delete grains with very small radii
       for (unsigned int g = 0; g < simplified_grain_representations.size(); g++)
         {
           if (simplified_grain_representations.at(g).getRadius() <
@@ -362,7 +350,6 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
             }
         }
 
-
       // Remap grains
       pcout << "Placing the grains in their new order parameters...\n";
       OrderParameterRemapper<dim> order_parameter_remapper;
@@ -374,15 +361,11 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
         FESet.at(scalar_field_index)->dofs_per_cell,
         userInputs.buffer_between_grains);
 
-      
       smooth_order_parameters();
 
+    } // end of if load_grain_structure
 
-    } //end of if load_grain_structure 
-
-
-
-  // Assign ICs based on 
+  // Assign ICs based on
   unsigned int op_list_index = 0;
   for (unsigned int var_index = 0; var_index < userInputs.number_of_variables;
        var_index++)
@@ -405,12 +388,10 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
 
               if (userInputs.var_type[var_index] == SCALAR)
                 {
-                  VectorTools::interpolate(*dofHandlersSet[var_index],
-                                           InitialCondition<dim, degree>(var_index,
-                                                                         userInputs,
-                                                                         this,
-                                                                         data),
-                                           *solutionSet[var_index]);
+                  VectorTools::interpolate(
+                    *dofHandlersSet[var_index],
+                    InitialCondition<dim, degree>(var_index, userInputs, this, data),
+                    *solutionSet[var_index]);
                 }
               else if (userInputs.var_type[var_index] == VECTOR)
                 {
