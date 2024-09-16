@@ -4,10 +4,10 @@
 
 template <int dim, int degree>
 void
-customPDE<dim, degree>::setInitialCondition(const dealii::Point<dim> &p,
-                                            const unsigned int        index,
-                                            double                   &scalar_IC,
-                                            dealii::Vector<double>   &vector_IC,
+customPDE<dim, degree>::setInitialCondition(const dealii::Point<dim>  &p,
+                                            const unsigned int         index,
+                                            double                    &scalar_IC,
+                                            dealii::Vector<double>    &vector_IC,
                                             const std::vector<double> &data)
 {
   // ---------------------------------------------------------------------
@@ -18,23 +18,22 @@ customPDE<dim, degree>::setInitialCondition(const dealii::Point<dim> &p,
   // according to its variable index
 
   if (index == 0)
-  {
-    int Nx = userInputs.domain_size[0];
-    int Ny = userInputs.domain_size[1];
-    int Nz = userInputs.domain_size[2];
+    {
+      int Nx = userInputs.domain_size[0];
+      int Ny = userInputs.domain_size[1];
+      int Nz = userInputs.domain_size[2];
 
-    // Convert cartesion point into flattened array index
-    int index = int(p[0] + (Ny+1) * p[1] + (Ny+1)*(Nz+1) * p[2]);
+      // Convert cartesion point into flattened array index
+      int index = int(p[0] + (Ny + 1) * p[1] + (Ny + 1) * (Nz + 1) * p[2]);
 
-    // Extract the grain ID from the data array
-    double data_value = data[index];
+      // Extract the grain ID from the data array
+      double data_value = data[index];
 
-    //double data_value = 0.0;
-    //std::cout << "Data value at index " << index << " is " << data_value << std::endl;
-    scalar_IC = data_value;
-  }
-
-
+      // double data_value = 0.0;
+      // std::cout << "Data value at index " << index << " is " << data_value <<
+      // std::endl;
+      scalar_IC = data_value;
+    }
 
   // --------------------------------------------------------------------------
 }

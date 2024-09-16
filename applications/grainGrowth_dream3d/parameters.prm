@@ -8,9 +8,9 @@ set Number of dimensions = 3
 # (Domain size Z ignored in 2D)
 # =================================================================================
 # Each axes spans from zero to the specified length
-set Domain size X = 360
-set Domain size Y = 360
-set Domain size Z = 360
+set Domain size X = 32
+set Domain size Y = 32
+set Domain size Z = 32
 
 # =================================================================================
 # Set the element parameters
@@ -18,11 +18,11 @@ set Domain size Z = 360
 # The number of elements in each direction is 2^(refineFactor) * subdivisions
 # Subdivisions Z ignored in 2D
 # For optimal performance, use refineFactor primarily to determine the element size
-set Subdivisions X = 45
-set Subdivisions Y = 45
-set Subdivisions Z = 45
+set Subdivisions X = 1
+set Subdivisions Y = 1
+set Subdivisions Z = 1
 
-set Refine factor = 2
+set Refine factor = 4
 
 # Set the polynomial degree of the element (allowed values: 1, 2, or 3)
 set Element degree = 2
@@ -128,7 +128,7 @@ set Output condition = EQUAL_SPACING
 
 # Number of times the program outputs the fields (total number for "EQUAL_SPACING"
 # and "LOG_SPACING", number per decade for "N_PER_DECADE", ignored for "LIST")
-set Number of outputs = 20
+set Number of outputs = 100
 
 # The number of time steps between updates being printed to the screen
 set Skip print steps = 50
@@ -144,7 +144,7 @@ set Order parameter cutoff for grain identification = 1e-2
 set Buffer between grains before reassignment = 2.0
 
 set Load grain structure = true
-set Grain structure filename = initial_grain_structure_small_2D
+set Grain structure filename = test_3D_33
 set Grain structure variable name = FeatureIds
 set Number of smoothing cycles after grain structure loading = 2
 set Minimum radius for loaded grains = 2.0

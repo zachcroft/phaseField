@@ -128,11 +128,11 @@ public:
 
   // Initial conditions function
   virtual void
-  setInitialCondition(const dealii::Point<dim> &p,
-                      const unsigned int        index,
-                      double                   &scalar_IC,
-                      dealii::Vector<double>   &vector_IC,
-                      const std::vector<double> &data = std::vector<double>() ) = 0;
+  setInitialCondition(const dealii::Point<dim>  &p,
+                      const unsigned int         index,
+                      double                    &scalar_IC,
+                      dealii::Vector<double>    &vector_IC,
+                      const std::vector<double> &data = std::vector<double>()) = 0;
 
   // Non-uniform boundary conditions function
   virtual void
@@ -398,19 +398,23 @@ protected:
   void
   applyInitialConditions();
 
+  // Function to read binary data
+  std::vector<double>
+  read_binary_data(const std::string &filename, const std::vector<double> &domain_size);
+
   // A function to clear order parameter fields prior to remapping
-  void 
+  void
   clear_op_fields();
 
   // A function to locate grains and populate grain_sets using
   // a flood fill algorithm
-  void 
-  locate_grains(unsigned int min_id,
-                unsigned int max_id,
-                unsigned int scalar_field_index,
-                vectorType& grain_index_field,
-                FloodFiller<dim, degree>& flood_filler,
-                std::vector<GrainSet<dim>>& grain_sets);
+  void
+  locate_grains(unsigned int                min_id,
+                unsigned int                max_id,
+                unsigned int                scalar_field_index,
+                vectorType                 &grain_index_field,
+                FloodFiller<dim, degree>   &flood_filler,
+                std::vector<GrainSet<dim>> &grain_sets);
 
   void
   smooth_order_parameters();

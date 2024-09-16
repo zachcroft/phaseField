@@ -178,20 +178,22 @@ MatrixFreePDE<dim, degree>::smooth_order_parameters()
     }
 }
 
-// Method to apply initial conditions
+// REFACTORING (4)
 template <int dim, int degree>
-void
-MatrixFreePDE<dim, degree>::applyInitialConditions()
+std::vector<double>
+MatrixFreePDE<dim, degree>::read_binary_data(const std::string         &filename,
+                                             const std::vector<double> &domain_size)
 {
-  // Test for rank 0 binary read
-
   // Begin section for binary read in
-  std::cout << "Reading .dat file..." << std::endl;
   std::vector<double> data;
-  std::ifstream dataFile("360cubed_singleS3_grain.dat", std::ios::in | std::ios::binary);
+  // std::string         filename = userInputs.grain_structure_filename;
+  std::string binary_file = filename + ".dat";
+  std::cout << "Reading " << binary_file << " file..." << std::endl;
+  std::ifstream dataFile(binary_file, std::ios::in | std::ios::binary);
   double        dbuf;
   char          buf[8];
-  unsigned long bindata_totsize = 361 * 361 * 361;
+  unsigned long bindata_totsize =
+    (domain_size[0] + 1) * (domain_size[1] + 1) * (domain_size[2] + 1);
   data.reserve(bindata_totsize);
 
   // Read the .dat file
@@ -204,7 +206,20 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
   dataFile.close();
 
   std::cout << "Done." << std::endl;
+
+  return data;
   // End section for binary read in
+}
+
+// Method to apply initial conditions
+template <int dim, int degree>
+void
+MatrixFreePDE<dim, degree>::applyInitialConditions()
+{
+  // Test for rank 0 binary read
+
+  std::vector<double> data =
+    read_binary_data(userInputs.grain_structure_filename, userInputs.domain_size);
 
   // Print contents to test if read in was successful
   // for (unsigned int i = 0; i < data.size(); i++)
