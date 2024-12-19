@@ -69,10 +69,14 @@ MatrixFreePDE<dim, degree>::locate_grains(unsigned int                min_id,
                                           FloodFiller<dim, degree>   &flood_filler,
                                           std::vector<GrainSet<dim>> &grain_sets)
 {
+  // Loop over the grains one-at-a-time and locate each (note: This is a really
+  // inefficient way of doing this.)
   for (unsigned int id = min_id; id < max_id + 1; id++)
     {
       pcout << "Locating grain " << id << "...\n";
 
+      pcout
+        << "Instantiating a vector of GrainSet objects called grain_sets_single_id...\n";
       std::vector<GrainSet<dim>> grain_sets_single_id;
 
       flood_filler.calcGrainSets(*FESet.at(scalar_field_index),
@@ -92,6 +96,77 @@ MatrixFreePDE<dim, degree>::locate_grains(unsigned int                min_id,
                         grain_sets_single_id.begin(),
                         grain_sets_single_id.end());
     }
+}
+
+template <int dim, int degree>
+void
+MatrixFreePDE<dim, degree>::locate_grains_optimal(unsigned int min_id,
+                                                  unsigned int max_id,
+                                                  unsigned int scalar_field_index,
+                                                  vectorType  &grain_index_field,
+                                                  FloodFiller<dim, degree> &flood_filler,
+                                                  std::vector<GrainSet<dim>> &grain_sets)
+{
+  pcout << "Instantiating a vector of GrainSet objects called grain_sets_single_id...\n";
+  std::vector<GrainSet<dim>> grain_sets_single_id;
+
+  // Dummy variable
+  unsigned int id = 1;
+
+  flood_filler.calcGrainSets_optimal(*FESet.at(scalar_field_index),
+                                     *dofHandlersSet_nonconst.at(scalar_field_index),
+                                     &grain_index_field,
+                                     (double) id - userInputs.order_parameter_threshold,
+                                     (double) id + userInputs.order_parameter_threshold,
+                                     0,
+                                     grain_sets_single_id);
+
+  // Loop over each grain "set" and set its GrainSet.index to the current id value
+  pcout << "grain_sets_single_id.size() = " << grain_sets_single_id.size() << std::endl;
+  /*
+  for (unsigned int g = 0; g < grain_sets_single_id.size(); g++)
+    {
+      // Zach: change 'id' to 'g' since we aren't looping over id's anymore
+      grain_sets_single_id.at(g).setGrainIndex(g);
+    }
+    */
+
+  // Retain the vector of grain sets from calcGrainSets by inserting it into the empty
+  // vector defined in initialConditions
+  grain_sets.insert(grain_sets.end(),
+                    grain_sets_single_id.begin(),
+                    grain_sets_single_id.end());
+
+  /*
+  // Loop over the grains one-at-a-time and locate each (note: This is a really
+  // inefficient way of doing this.)
+  for (unsigned int id = min_id; id < max_id + 1; id++)
+    {
+      pcout << "Locating grain " << id << "...\n";
+
+      pcout
+        << "Instantiating a vector of GrainSet objects called grain_sets_single_id...\n";
+      std::vector<GrainSet<dim>> grain_sets_single_id;
+
+      flood_filler.calcGrainSets(*FESet.at(scalar_field_index),
+                                 *dofHandlersSet_nonconst.at(scalar_field_index),
+                                 &grain_index_field,
+                                 (double) id - userInputs.order_parameter_threshold,
+                                 (double) id + userInputs.order_parameter_threshold,
+                                 0,
+                                 grain_sets_single_id);
+
+      // Loop over each grain "set" and set its GrainSet.index to the current id value
+      for (unsigned int g = 0; g < grain_sets_single_id.size(); g++)
+        {
+          grain_sets_single_id.at(g).setGrainIndex(id);
+        }
+
+      grain_sets.insert(grain_sets.end(),
+                        grain_sets_single_id.begin(),
+                        grain_sets_single_id.end());
+    }
+  */
 }
 
 // REFACTORING (3)
@@ -216,17 +291,13 @@ template <int dim, int degree>
 void
 MatrixFreePDE<dim, degree>::applyInitialConditions()
 {
-  // Test for rank 0 binary read
+  pcout << "Entering applyInitialConditions()...\n\n";
 
+  // Read binary data
   std::vector<double> data =
     read_binary_data(userInputs.grain_structure_filename, userInputs.domain_size);
 
-  // Print contents to test if read in was successful
-  // for (unsigned int i = 0; i < data.size(); i++)
-  //{
-  //    std::cout << data[i] << std::endl;
-  //}
-
+  // Section for loading a grain structure
   if (userInputs.load_grain_structure)
     {
       clear_op_fields();
@@ -262,14 +333,19 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
 
       pcout << "Applying PField initial condition...\n";
 
+      // Interpolate VTK data to grain index field
       // VectorTools::interpolate(*dofHandlersSet[scalar_field_index],
       //                          InitialConditionPField<dim>(0, id_field),
       //                          grain_index_field);
+
+      // Interpolate binary data to grain index field
+      pcout << "Interpolating binary data to IC vector...\n";
       VectorTools::interpolate(
         *dofHandlersSet[scalar_field_index],
         InitialCondition<dim, degree>(scalar_field_index, userInputs, this, data),
         grain_index_field);
 
+      pcout << "Updating ghost values...\n";
       grain_index_field.update_ghost_values();
 
       // Get the max and min grain ids in the structure
@@ -287,43 +363,56 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
       // Locate grains via flood fill and generate grains sets
       pcout << "Locating the grains...\n";
       std::vector<GrainSet<dim>> grain_sets;
-      locate_grains(min_id,
-                    max_id,
-                    scalar_field_index,
-                    grain_index_field,
-                    flood_filler,
-                    grain_sets);
+      locate_grains_optimal(min_id,
+                            max_id,
+                            scalar_field_index,
+                            grain_index_field,
+                            flood_filler,
+                            grain_sets);
+
+      pcout << "Finished locate_grains_optimal."
+            << "\n";
+
+      pcout << "grain_sets.size() = " << grain_sets.size() << "\n";
 
       // Generate simplified represenations for grain sets
       pcout << "Generating simplified representations of the grains...\n";
       for (unsigned int g = 0; g < grain_sets.size(); g++)
         {
+          std::cout << "g = " << g << "\n";
+          std::cout << "grain_sets[g].getGrainIndex(): " << grain_sets[g].getGrainIndex()
+                    << "\n";
+
           SimplifiedGrainRepresentation<dim> simplified_grain_representation(
             grain_sets.at(g));
 
           if (dim == 2)
             {
-              pcout << "Grain: " << simplified_grain_representation.getGrainId() << " "
-                    << simplified_grain_representation.getOrderParameterId()
-                    << " Center: " << simplified_grain_representation.getCenter()(0)
-                    << " " << simplified_grain_representation.getCenter()(1)
-                    << "  Radius: " << simplified_grain_representation.getRadius()
-                    << std::endl;
+              std::cout << "Grain ID: " << simplified_grain_representation.getGrainId()
+                        << ", OP ID: "
+                        << simplified_grain_representation.getOrderParameterId()
+                        << " , Center: " << simplified_grain_representation.getCenter()(0)
+                        << " " << simplified_grain_representation.getCenter()(1)
+                        << ",  Radius: " << simplified_grain_representation.getRadius()
+                        << std::endl;
             }
           else
             {
-              pcout << "Grain: " << simplified_grain_representation.getGrainId() << " "
-                    << simplified_grain_representation.getOrderParameterId()
-                    << " Center: " << simplified_grain_representation.getCenter()(0)
-                    << " " << simplified_grain_representation.getCenter()(1) << " "
-                    << simplified_grain_representation.getCenter()(2)
-                    << "  Radius: " << simplified_grain_representation.getRadius()
-                    << std::endl;
+              std::cout << "Grain: " << simplified_grain_representation.getGrainId()
+                        << " , OP ID: "
+                        << simplified_grain_representation.getOrderParameterId()
+                        << " Center: " << simplified_grain_representation.getCenter()(0)
+                        << " " << simplified_grain_representation.getCenter()(1) << " "
+                        << simplified_grain_representation.getCenter()(2)
+                        << "  Radius: " << simplified_grain_representation.getRadius()
+                        << std::endl;
             }
 
           simplified_grain_representations.push_back(simplified_grain_representation);
         }
 
+      /*
+      // ZACH: commenting out while debugging grain Location
       // Delete grains with very small radii
       for (unsigned int g = 0; g < simplified_grain_representations.size(); g++)
         {
@@ -335,8 +424,11 @@ MatrixFreePDE<dim, degree>::applyInitialConditions()
               g--;
             }
         }
+        */
 
+      // ZACH: commenting out grain reassignment (leaving in order parameter n0)
       // Reassign grains based on distance
+
       pcout << "Reassigning the grains to new order parameters...\n";
       SimplifiedGrainManipulator<dim> simplified_grain_manipulator;
       simplified_grain_manipulator.reassignGrains(simplified_grain_representations,

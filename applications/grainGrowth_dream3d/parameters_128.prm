@@ -8,9 +8,9 @@ set Number of dimensions = 3
 # (Domain size Z ignored in 2D)
 # =================================================================================
 # Each axes spans from zero to the specified length
-set Domain size X = 256
-set Domain size Y = 256
-set Domain size Z = 256
+set Domain size X = 128
+set Domain size Y = 128
+set Domain size Z = 128
 
 # =================================================================================
 # Set the element parameters
@@ -18,11 +18,11 @@ set Domain size Z = 256
 # The number of elements in each direction is 2^(refineFactor) * subdivisions
 # Subdivisions Z ignored in 2D
 # For optimal performance, use refineFactor primarily to determine the element size
-set Subdivisions X = 1
-set Subdivisions Y = 1
-set Subdivisions Z = 1
+#set Subdivisions X = 1
+#set Subdivisions Y = 1
+#set Subdivisions Z = 1
 
-set Refine factor = 7
+set Refine factor = 6
 
 # Set the polynomial degree of the element (allowed values: 1, 2, or 3)
 set Element degree = 2
@@ -31,7 +31,7 @@ set Element degree = 2
 # Set the adaptive mesh refinement parameters
 # =================================================================================
 # Set the flag determining if adaptive meshing is activated
-set Mesh adaptivity = false
+set Mesh adaptivity = true
 
 # Set the maximum and minimum level of refinement
 # When adaptive meshing is enabled, the refine factor set in the block above is
@@ -145,7 +145,7 @@ set Buffer between grains before reassignment = 2.0
 
 set Load grain structure = true
 set Load from a checkpoint = false
-set Grain structure filename = 257cubed_1000grains
+set Grain structure filename = test_3D_129
 set Grain structure variable name = FeatureIds
 set Number of smoothing cycles after grain structure loading = 2
 set Minimum radius for loaded grains = 2.0

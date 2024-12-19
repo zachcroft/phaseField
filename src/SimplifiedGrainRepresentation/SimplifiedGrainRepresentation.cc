@@ -8,7 +8,8 @@ template <int dim>
 SimplifiedGrainRepresentation<dim>::SimplifiedGrainRepresentation(
   const GrainSet<dim> &grain_set)
 {
-  grain_id                        = grain_set.getGrainIndex();
+  grain_id = grain_set.getGrainIndex();
+  std::cout << "grain_id = " << grain_id << "\n";
   order_parameter_id              = grain_set.getOrderParameterIndex();
   old_order_parameter_id          = order_parameter_id;
   distance_to_neighbor_sharing_op = 0.0;

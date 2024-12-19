@@ -416,6 +416,16 @@ protected:
                 FloodFiller<dim, degree>   &flood_filler,
                 std::vector<GrainSet<dim>> &grain_sets);
 
+  // A function to locate grains and populate grain_sets using
+  // a flood fill algorithm, optimized on Dec. 15 to be efficient
+  void
+  locate_grains_optimal(unsigned int                min_id,
+                        unsigned int                max_id,
+                        unsigned int                scalar_field_index,
+                        vectorType                 &grain_index_field,
+                        FloodFiller<dim, degree>   &flood_filler,
+                        std::vector<GrainSet<dim>> &grain_sets);
+
   void
   smooth_order_parameters();
 

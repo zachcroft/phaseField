@@ -1,6 +1,7 @@
 #ifndef INCLUDE_FLOODFILLER_H_
 #define INCLUDE_FLOODFILLER_H_
 
+#include <deal.II/base/conditional_ostream.h>
 #include <deal.II/base/quadrature.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/fe/fe_q.h>
@@ -10,7 +11,6 @@
 #include <deal.II/grid/tria_iterator.h>
 #include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/matrix_free/fe_evaluation.h>
-#include <deal.II/base/conditional_ostream.h>
 
 #ifndef vectorType
 typedef dealii::LinearAlgebra::distributed::Vector<double> vectorType;
@@ -108,10 +108,10 @@ public:
   /**
    * Constructor.
    */
-  FloodFiller(dealii::FESystem<dim> &_fe, 
-              dealii::QGaussLobatto<dim> _quadrature, 
+  FloodFiller(dealii::FESystem<dim>     &_fe,
+              dealii::QGaussLobatto<dim> _quadrature,
               dealii::ConditionalOStream _pcout,
-              int _level)
+              int                        _level)
     : quadrature(_quadrature)
     , num_quad_points(_quadrature.size())
     , dofs_per_cell(_fe.dofs_per_cell)
@@ -135,37 +135,65 @@ public:
                 unsigned int                order_parameter_index,
                 std::vector<GrainSet<dim>> &grain_sets);
 
-protected:
+  /**
+   * The primary external interface. This method takes in information about the
+   * mesh/field and outputs a vector of GrainSet objects. OPTIMIZED by Zach on Dec. 15
+   */
+  void
+  calcGrainSets_optimal(dealii::FESystem<dim>      &fe,
+                        dealii::DoFHandler<dim>    &dof_handler,
+                        vectorType                 *solution_field,
+                        double                      threshold_lower,
+                        double                      threshold_upper,
+                        unsigned int                order_parameter_index,
+                        std::vector<GrainSet<dim>> &grain_sets);
 
+protected:
   /**
    * The actual queue flood fill method.
    */
 
   template <typename T>
   void
-  queueFloodFill(T di,
-                 T di_end,
-                 vectorType* solution_field,
-                 double threshold_lower,
-                 double threshold_upper,
+  queueFloodFill(T                           di,
+                 T                           di_end,
+                 vectorType                 *solution_field,
+                 double                      threshold_lower,
+                 double                      threshold_upper,
                  std::vector<GrainSet<dim>> &grain_sets,
-                 bool &grain_assigned);
+                 bool                       &grain_assigned);
 
-                 
+  /*
+   * What does this method do?? It seems to check if the value of the cell (most frequent
+   * value of the quad points) falls within the threshold range for the current grain that
+   * is being Located. For example, if we are currently "Locating grain 3..." then it will
+   * check if the most frequent value (ele_val) is in the range 2.99 to 3.01. If it is in
+   * that range, then checkCell() will return 'true', otherwise it will return 'false'
+   */
   template <typename T>
-  bool checkCell(T di,
-                 T di_end,
-                 vectorType* solution_field,
-                 double threshold_lower,
-                 double threshold_upper);
+  bool
+  checkCell(T           di,
+            T           di_end,
+            vectorType *solution_field,
+            double      threshold_lower,
+            double      threshold_upper);
+
+  template <typename T>
+  double
+  checkCell_optimal(T           di,
+                    T           di_end,
+                    vectorType *solution_field,
+                    double      threshold_lower,
+                    double      threshold_upper);
 
   dealii::ConditionalOStream pcout;
 
+  /*
+   * What does level do?? It seems that in initialConditions.cc when a FloodFiller
+   * object called flood_filler is instantiated the refine factor is passed into
+   * the function as 'level'
+   */
   int level;
-                 
-
-
-
 
   /**
    * The actual recursive flood fill method.

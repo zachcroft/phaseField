@@ -13,12 +13,12 @@ MatrixFreePDE<dim, degree>::init()
   computing_timer.enter_subsection("matrixFreePDE: initialization");
 
   // creating mesh
-
   pcout << "creating problem mesh...\n";
   // Create the coarse mesh and mark the boundaries
   makeTriangulation(triangulation);
 
   // Set which (if any) faces of the triangulation are periodic
+  pcout << "setPeriodicity...\n";
   setPeriodicity();
 
   // If resuming from a checkpoint, load the refined triangulation, otherwise
@@ -29,6 +29,7 @@ MatrixFreePDE<dim, degree>::init()
     }
   else
     {
+      pcout << "triangulation.refine_global...\n";
       // Do the initial global refinement
       triangulation.refine_global(userInputs.refine_factor);
     }
@@ -236,12 +237,14 @@ MatrixFreePDE<dim, degree>::init()
   pcout << "total DOF : " << totalDOFs << std::endl;
 
   // Setup the matrix free object
+  pcout << "Setting up additional_data...\n";
   typename MatrixFree<dim, double>::AdditionalData additional_data;
 // The member "mpi_communicator" was removed in deal.II version 8.5 but is
 // required before it
 #if (DEAL_II_VERSION_MAJOR < 9 && DEAL_II_VERSION_MINOR < 5)
   additional_data.mpi_communicator = MPI_COMM_WORLD;
 #endif
+  pcout << "Partitioning additional_data...\n";
   additional_data.tasks_parallel_scheme =
     MatrixFree<dim, double>::AdditionalData::partition_partition;
   // additional_data.tasks_parallel_scheme =
@@ -256,11 +259,13 @@ MatrixFreePDE<dim, degree>::init()
                           quadrature,
                           additional_data);
 #else
+  pcout << "Reinitializing matrixFreeObject...\n";
   matrixFreeObject.reinit(MappingFE<dim, dim>(FE_Q<dim>(QGaussLobatto<1>(degree + 1))),
                           dofHandlersSet,
                           constraintsOtherSet,
                           quadrature,
                           additional_data);
+  pcout << "Done.\n";
 #endif
   bool dU_scalar_init = false;
   bool dU_vector_init = false;
@@ -307,6 +312,7 @@ MatrixFreePDE<dim, degree>::init()
         }
     }
 
+  pcout << "Computing Inverse Matrix...\n";
   // check if time dependent BVP and compute invM
   if (isTimeDependentBVP)
     {
@@ -325,6 +331,7 @@ MatrixFreePDE<dim, degree>::init()
       applyInitialConditions();
     }
 
+  pcout << "Transferring solution sets...\n";
   // Create new solution transfer sets (needed for the "refineGrid" call, might
   // be able to move this elsewhere)
   soltransSet.clear();
@@ -334,6 +341,7 @@ MatrixFreePDE<dim, degree>::init()
         *dofHandlersSet_nonconst[fieldIndex]));
     }
 
+  pcout << "Ghosting solution vectors and apply constraints...\n";
   // Ghost the solution vectors. Also apply the constraints (if any) on the
   // solution vectors
   for (unsigned int fieldIndex = 0; fieldIndex < fields.size(); fieldIndex++)
@@ -347,6 +355,7 @@ MatrixFreePDE<dim, degree>::init()
   // refinement, which reinitializes the system with the new mesh
   if (!userInputs.resume_from_checkpoint)
     {
+      pcout << "adaptiveRefine(0)...\n";
       adaptiveRefine(0);
     }
 

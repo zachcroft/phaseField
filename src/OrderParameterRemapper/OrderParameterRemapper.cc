@@ -123,6 +123,7 @@ OrderParameterRemapper<dim>::remap_from_index_field(
   unsigned int                                     dofs_per_cell,
   double                                           buffer)
 {
+  // Loop over all grains (grain representations)
   for (unsigned int g = 0; g < grain_representations.size(); g++)
     {
       std::cout << "Grain: " << grain_representations.at(g).getGrainId()
@@ -130,6 +131,8 @@ OrderParameterRemapper<dim>::remap_from_index_field(
                 << " New OP: " << grain_representations.at(g).getOrderParameterId()
                 << std::endl;
 
+      // What does this do? It seems to be an exclusion distance based on 1/2 the neighbor
+      // distance
       double transfer_buffer =
         std::max(0.0, grain_representations.at(g).getDistanceToNeighbor() / 2.0);
 
@@ -141,6 +144,8 @@ OrderParameterRemapper<dim>::remap_from_index_field(
       // order parameter. This separation prevents writing zero-out values to
       // the new order parameter. There probably is a more efficient way of
       // doing this.
+
+      // Loop over all cells
       while (di != dof_handler.end())
         {
           if (di->is_locally_owned())
@@ -148,7 +153,8 @@ OrderParameterRemapper<dim>::remap_from_index_field(
               unsigned int op_new = grain_representations.at(g).getOrderParameterId();
               unsigned int op_old = grain_representations.at(g).getOldOrderParameterId();
 
-              // Check if the cell is within the simplified grain representation
+              // Check if the cell is within the simplified grain representation. Loop
+              // over all vertices of the current cell, di.
               bool in_grain = true;
               for (unsigned int v = 0; v < dealii::GeometryInfo<dim>::vertices_per_cell;
                    v++)
